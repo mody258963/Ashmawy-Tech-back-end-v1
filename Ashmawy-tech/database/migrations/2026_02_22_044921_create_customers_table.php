@@ -16,12 +16,14 @@ return new class extends Migration
             $table->string('name');
             $table->string('phone')->unique();
             $table->text('address')->nullable();
+            $table->string('address_link')->nullable();
             $table->text('notes')->nullable();
             $table->enum('status', ['new', 'contacted', 'follow_up', 'converted', 'rejected'])->default('new');
             $table->string('rejection_reason')->nullable();
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->foreignId('branch_id')->constrained('branches')->cascadeOnDelete();
             $table->timestamps();
+            $table->softDeletes();
         });
 
     }
