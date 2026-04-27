@@ -26,6 +26,7 @@ use App\Repository\User\Eloquent\UserEloquent;
 use App\Repository\User\UserRepository;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -48,6 +49,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Paginator::useBootstrap();
+
+        if ($this->app->environment('production')) {
+            URL::forceScheme('https');
+        }
 
         Gate::define('access-admin', function ($user) {
             return $user && in_array($user->role, ['owner', 'moderator'], true);
