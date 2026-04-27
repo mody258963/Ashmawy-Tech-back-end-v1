@@ -1,4 +1,16 @@
 # Multi-stage build for Laravel application
+FROM node:20-alpine AS assets
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY resources ./resources
+COPY public ./public
+COPY vite.config.js postcss.config.js ./
+RUN npm run build
+
 FROM php:8.2-fpm-alpine AS base
 
 ARG TZ=UTC
@@ -41,6 +53,7 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction --no-script
 
 COPY . .
 RUN composer dump-autoload --optimize
+COPY --from=assets /app/public/build /var/www/html/public/build
 
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html \
