@@ -25,9 +25,18 @@ class MeController
                 'orders_status_update',
                 'appointments_manage',
                 'payments_manage',
+                'home_service_start_trip',
+                'home_service_start_service',
+                'home_service_mark_done',
             ],
             'collector' => ['pickup_from_customer', 'pending_delivery', 'mark_delivered'],
-            'technician' => ['finish_fixing', 'order_status_read'],
+            'technician' => [
+                'finish_fixing',
+                'order_status_read',
+                'home_service_start_trip',
+                'home_service_start_service',
+                'home_service_mark_done',
+            ],
             default => [],
         };
 

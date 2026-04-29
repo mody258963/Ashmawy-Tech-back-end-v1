@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('expenses', function (Blueprint $table) {
             $table->id();
             $table->foreignId('branch_id')->constrained('branches');
+            $table->foreignId('order_id')->nullable()->constrained('orders')->nullOnDelete();
             $table->string('title');
             $table->decimal('amount', 10, 2);
             $table->text('description')->nullable();

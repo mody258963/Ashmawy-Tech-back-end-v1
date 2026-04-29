@@ -11,6 +11,7 @@ class Expense extends Model
 
     protected $fillable = [
         'branch_id',
+        'order_id',
         'title',
         'amount',
         'description',
@@ -29,5 +30,10 @@ class Expense extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function order()
+    {
+        return $this->belongsTo(Order::class);
     }
 }

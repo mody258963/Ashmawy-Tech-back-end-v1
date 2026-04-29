@@ -31,6 +31,12 @@ class OrderController
         if ($request->filled('status')) {
             $query->where('status', $request->string('status'));
         }
+        if ($request->filled('service_mode')) {
+            $query->where('service_mode', $request->string('service_mode'));
+        }
+        if ($request->filled('home_service_stage')) {
+            $query->where('home_service_stage', $request->string('home_service_stage'));
+        }
 
         $perPage = min(max((int) $request->query('per_page', 20), 1), 100);
 
@@ -48,6 +54,7 @@ class OrderController
             'technician:id,name,role,branch_id',
             'collector:id,name,role,branch_id',
             'payments',
+            'expenses',
             'spareParts',
             'notes.user',
             'statusHistories.changedBy',
@@ -70,7 +77,7 @@ class OrderController
         $data = $request->validate([
             'status' => [
                 'required',
-                Rule::in(['pending_pickup', 'received', 'diagnosing', 'waiting_approval', 'repairing', 'ready', 'delivered', 'cancelled']),
+                Rule::in(Order::STATUSES),
             ],
         ]);
 

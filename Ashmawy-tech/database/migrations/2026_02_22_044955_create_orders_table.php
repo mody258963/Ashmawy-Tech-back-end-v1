@@ -22,6 +22,8 @@ return new class extends Migration
             $table->decimal('estimated_cost', 10, 2);
             $table->decimal('final_cost', 10, 2)->nullable();
             $table->enum('status', ['pending_pickup', 'received', 'diagnosing', 'waiting_approval', 'repairing', 'ready', 'delivered', 'cancelled'])->default('pending_pickup');
+            $table->enum('service_mode', ['workshop', 'home_service'])->default('workshop');
+            $table->enum('home_service_stage', ['home_visit_scheduled', 'on_the_way', 'home_service_in_progress', 'home_service_done'])->nullable();
             $table->boolean('approved')->default(false);
             $table->dateTime('received_at')->nullable();
             $table->dateTime('delivered_at')->nullable();

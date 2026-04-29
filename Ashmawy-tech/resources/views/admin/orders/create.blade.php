@@ -55,6 +55,22 @@
                 <div class="form-group"><label>Estimated cost</label><input type="text" name="estimated_cost" class="form-control" value="{{ old('estimated_cost', '0') }}" required></div>
                 <div class="form-group"><label>Final cost</label><input type="text" name="final_cost" class="form-control" value="{{ old('final_cost') }}"></div>
                 <div class="form-group">
+                    <label>Service mode</label>
+                    <select name="service_mode" class="form-control" id="service_mode_create">
+                        <option value="workshop" @selected(old('service_mode', 'workshop') === 'workshop')>Workshop (normal flow)</option>
+                        <option value="home_service" @selected(old('service_mode') === 'home_service')>Home service (no collection)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Home service stage</label>
+                    <select name="home_service_stage" class="form-control" id="home_stage_create">
+                        <option value="">-- none --</option>
+                        @foreach (['home_visit_scheduled','on_the_way','home_service_in_progress','home_service_done'] as $stage)
+                            <option value="{{ $stage }}" @selected(old('home_service_stage') === $stage)>{{ $stage }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="form-group">
                     <label>Status</label>
                     <select name="status" class="form-control">
                         @foreach (['pending_pickup','received','diagnosing','waiting_approval','repairing','ready','delivered','cancelled'] as $s)
@@ -122,6 +138,23 @@
                     option.hidden = !match;
                 });
             });
+        })();
+
+        (function () {
+            const mode = document.getElementById('service_mode_create');
+            const stage = document.getElementById('home_stage_create');
+            if (!mode || !stage) {
+                return;
+            }
+            const sync = function () {
+                const isHome = mode.value === 'home_service';
+                stage.disabled = !isHome;
+                if (!isHome) {
+                    stage.value = '';
+                }
+            };
+            mode.addEventListener('change', sync);
+            sync();
         })();
     </script>
 @endpush

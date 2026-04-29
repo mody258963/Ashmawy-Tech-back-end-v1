@@ -27,6 +27,9 @@ Route::prefix('v1')->group(function () {
 
         Route::patch('collector/orders/{order}/pickup-from-customer', [WorkerOrderFlowController::class, 'collectorPickupFromCustomer']);
         Route::patch('technician/orders/{order}/finish-fixing', [WorkerOrderFlowController::class, 'technicianFinishFixing']);
+        Route::patch('technician/orders/{order}/home-service/start-trip', [WorkerOrderFlowController::class, 'homeServiceStartTrip']);
+        Route::patch('technician/orders/{order}/home-service/start-service', [WorkerOrderFlowController::class, 'homeServiceStartService']);
+        Route::patch('technician/orders/{order}/home-service/mark-done', [WorkerOrderFlowController::class, 'homeServiceMarkDone']);
         Route::get('collector/orders/pending-delivery', [WorkerOrderFlowController::class, 'collectorPendingDelivery']);
         Route::patch('collector/orders/{order}/mark-delivered', [WorkerOrderFlowController::class, 'collectorMarkDelivered']);
 

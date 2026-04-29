@@ -81,6 +81,11 @@ Worker app meaning:
 
 - `ready` => **Pending Delivery** in collector UI
 
+Service mode:
+
+- `workshop` => normal collector + technician flow
+- `home_service` => technician/owner home-visit flow (collector is skipped)
+
 Required business sequence:
 
 1. `pending_pickup`
@@ -88,6 +93,14 @@ Required business sequence:
 3. technician fixes
 4. technician marks finished -> `ready`
 5. collector delivers to customer -> `delivered`
+
+Home-service sequence:
+
+1. order `service_mode = home_service`
+2. `home_service_stage = home_visit_scheduled`
+3. technician starts trip -> `on_the_way`
+4. technician starts service -> `home_service_in_progress`
+5. technician marks done -> `home_service_done` and order status `delivered`
 
 ---
 
@@ -273,6 +286,64 @@ Success response (example):
 }
 ```
 
+### E) Home service: start trip (technician/owner)
+
+- `PATCH /technician/orders/{order}/home-service/start-trip`
+
+Rules:
+
+- requester role must be `technician` or `owner`
+- order must be assigned to technician (owner bypass allowed)
+- order `service_mode` must be `home_service`
+- `home_service_stage` must be `home_visit_scheduled`
+
+Optional trip expense payload:
+
+```json
+{
+  "trip_expense_amount": 120,
+  "trip_expense_title": "Trip spare parts",
+  "trip_expense_description": "Bought adapter before home visit"
+}
+```
+
+Effect:
+
+- home stage -> `on_the_way`
+- order status -> `diagnosing`
+- if expense amount sent: expense is created and linked to order (`order_id`)
+
+### F) Home service: start work (technician/owner)
+
+- `PATCH /technician/orders/{order}/home-service/start-service`
+
+Rules:
+
+- requester role `technician` or `owner`
+- home-service order only
+- stage must be `on_the_way` or `home_visit_scheduled`
+
+Effect:
+
+- home stage -> `home_service_in_progress`
+- order status -> `repairing`
+
+### G) Home service: mark done (technician/owner)
+
+- `PATCH /technician/orders/{order}/home-service/mark-done`
+
+Rules:
+
+- requester role `technician` or `owner`
+- home-service order only
+- stage must be `home_service_in_progress` or `on_the_way`
+
+Effect:
+
+- home stage -> `home_service_done`
+- order status -> `delivered`
+- `delivered_at` is auto-set if empty
+
 ---
 
 ## 5) App screens contract
@@ -455,6 +526,14 @@ Technician path:
 3. `GET /orders/{id}`
 4. `PATCH /technician/orders/{id}/finish-fixing`
 
+Home-service technician path:
+
+1. `GET /me`
+2. `GET /orders?service_mode=home_service`
+3. `PATCH /technician/orders/{id}/home-service/start-trip`
+4. `PATCH /technician/orders/{id}/home-service/start-service`
+5. `PATCH /technician/orders/{id}/home-service/mark-done`
+
 Collector path:
 
 1. `GET /me`
@@ -482,6 +561,9 @@ Allowed worker transitions:
 - collector: `pending_pickup` -> `received` (`/collector/orders/{order}/pickup-from-customer`)
 - technician: `received|diagnosing|waiting_approval|repairing` -> `ready` (`/technician/orders/{order}/finish-fixing`)
 - collector: `ready` -> `delivered` (`/collector/orders/{order}/mark-delivered`)
+- technician/owner (home service): `home_visit_scheduled` -> `on_the_way` (`/technician/orders/{order}/home-service/start-trip`)
+- technician/owner (home service): `on_the_way|home_visit_scheduled` -> `home_service_in_progress` (`/technician/orders/{order}/home-service/start-service`)
+- technician/owner (home service): `home_service_in_progress|on_the_way` -> `home_service_done` + status `delivered` (`/technician/orders/{order}/home-service/mark-done`)
 
 Blocked transitions:
 

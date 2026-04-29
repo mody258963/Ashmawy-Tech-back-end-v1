@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\Order;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -17,6 +18,8 @@ class OrderRequest extends FormRequest
             'final_cost' => $this->emptyStringToNull('final_cost'),
             'received_at' => $this->emptyStringToNull('received_at'),
             'delivered_at' => $this->emptyStringToNull('delivered_at'),
+            'service_mode' => $this->input('service_mode', Order::SERVICE_MODE_WORKSHOP),
+            'home_service_stage' => $this->emptyStringToNull('home_service_stage'),
         ]);
     }
 
@@ -32,7 +35,9 @@ class OrderRequest extends FormRequest
             'technician_id' => ['nullable', 'exists:users,id'],
             'estimated_cost' => ['required', 'numeric', 'min:0'],
             'final_cost' => ['nullable', 'numeric', 'min:0'],
-            'status' => ['required', 'in:pending_pickup,received,diagnosing,waiting_approval,repairing,ready,delivered,cancelled'],
+            'status' => ['required', 'in:'.implode(',', Order::STATUSES)],
+            'service_mode' => ['required', 'in:'.Order::SERVICE_MODE_WORKSHOP.','.Order::SERVICE_MODE_HOME],
+            'home_service_stage' => ['nullable', 'in:'.implode(',', Order::HOME_STAGES)],
             'approved' => ['sometimes', 'boolean'],
             'received_at' => ['nullable', 'date', 'required_if:status,pending_pickup'],
             'delivered_at' => ['nullable', 'date'],
@@ -51,6 +56,18 @@ class OrderRequest extends FormRequest
     {
         $data = $this->validated();
         $data['approved'] = $this->boolean('approved');
+        if (($data['service_mode'] ?? Order::SERVICE_MODE_WORKSHOP) !== Order::SERVICE_MODE_HOME) {
+            $data['home_service_stage'] = null;
+        }
+        if (($data['service_mode'] ?? Order::SERVICE_MODE_WORKSHOP) === Order::SERVICE_MODE_HOME && empty($data['home_service_stage'])) {
+            $data['home_service_stage'] = Order::HOME_STAGE_SCHEDULED;
+        }
+        if (($data['service_mode'] ?? Order::SERVICE_MODE_WORKSHOP) === Order::SERVICE_MODE_HOME) {
+            $data['collector_id'] = null;
+            if (($data['status'] ?? null) === 'pending_pickup') {
+                $data['status'] = 'received';
+            }
+        }
         unset($data['parts']);
 
         return $data;

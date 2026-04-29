@@ -332,6 +332,89 @@
           }
         },
         {
+          "name": "Home Service - Start Trip",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trip_expense_amount\": 120,\n  \"trip_expense_title\": \"Trip spare parts\",\n  \"trip_expense_description\": \"Bought adapter before visit\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/technician/orders/{{order_id}}/home-service/start-trip",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "technician",
+                "orders",
+                "{{order_id}}",
+                "home-service",
+                "start-trip"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Home Service - Start Service",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/technician/orders/{{order_id}}/home-service/start-service",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "technician",
+                "orders",
+                "{{order_id}}",
+                "home-service",
+                "start-service"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Home Service - Mark Done",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/technician/orders/{{order_id}}/home-service/mark-done",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "technician",
+                "orders",
+                "{{order_id}}",
+                "home-service",
+                "mark-done"
+              ]
+            }
+          }
+        },
+        {
           "name": "Collector Pending Delivery",
           "request": {
             "method": "GET",

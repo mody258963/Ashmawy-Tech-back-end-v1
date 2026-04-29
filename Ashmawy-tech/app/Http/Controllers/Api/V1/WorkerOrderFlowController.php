@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Models\Expense;
 use App\Models\Order;
 use App\Models\OrderStatusHistory;
 use Illuminate\Http\JsonResponse;
@@ -11,6 +12,10 @@ class WorkerOrderFlowController
 {
     public function collectorPickupFromCustomer(Request $request, Order $order): JsonResponse
     {
+        if ($order->service_mode === Order::SERVICE_MODE_HOME) {
+            abort(422, 'Home-service orders do not require collector pickup.');
+        }
+
         $user = $request->user();
 
         if (! in_array($user?->role, ['collector', 'owner'], true)) {
@@ -29,6 +34,10 @@ class WorkerOrderFlowController
 
     public function technicianFinishFixing(Request $request, Order $order): JsonResponse
     {
+        if ($order->service_mode === Order::SERVICE_MODE_HOME) {
+            abort(422, 'Use home-service endpoints for this order.');
+        }
+
         $user = $request->user();
 
         if (! in_array($user?->role, ['technician', 'owner'], true)) {
@@ -71,6 +80,8 @@ class WorkerOrderFlowController
                 'id' => $order->id,
                 'order_number' => $order->order_number,
                 'status' => $order->status,
+                'service_mode' => $order->service_mode,
+                'home_service_stage' => $order->home_service_stage,
                 'workflow_status' => 'pending_delivery',
                 'customer' => $order->customer,
                 'device' => $order->device,
@@ -89,6 +100,10 @@ class WorkerOrderFlowController
 
     public function collectorMarkDelivered(Request $request, Order $order): JsonResponse
     {
+        if ($order->service_mode === Order::SERVICE_MODE_HOME) {
+            abort(422, 'Home-service orders are completed by technician/owner.');
+        }
+
         $user = $request->user();
 
         if (! in_array($user?->role, ['collector', 'owner'], true)) {
@@ -105,6 +120,59 @@ class WorkerOrderFlowController
         return $this->changeStatus($request, $order, 'delivered');
     }
 
+    public function homeServiceStartTrip(Request $request, Order $order): JsonResponse
+    {
+        $this->authorizeHomeServiceActor($request, $order);
+        $this->ensureHomeServiceOrder($order);
+        $this->ensureHomeStage($order, [Order::HOME_STAGE_SCHEDULED]);
+
+        $tripExpense = $request->validate([
+            'trip_expense_amount' => ['nullable', 'numeric', 'min:0.01'],
+            'trip_expense_title' => ['nullable', 'string', 'max:255'],
+            'trip_expense_description' => ['nullable', 'string'],
+        ]);
+
+        $this->changeStatus($request, $order, 'diagnosing');
+        $order->update(['home_service_stage' => Order::HOME_STAGE_ON_THE_WAY]);
+
+        if (! empty($tripExpense['trip_expense_amount'])) {
+            Expense::query()->create([
+                'branch_id' => (int) $order->branch_id,
+                'order_id' => (int) $order->id,
+                'title' => $tripExpense['trip_expense_title'] ?? 'Home service trip spare parts',
+                'amount' => $tripExpense['trip_expense_amount'],
+                'description' => $tripExpense['trip_expense_description'] ?? 'Trip expense recorded from worker app flow.',
+                'created_by' => (int) $request->user()->id,
+            ]);
+        }
+
+        return response()->json($order->fresh(['customer', 'device', 'branch']));
+    }
+
+    public function homeServiceStartService(Request $request, Order $order): JsonResponse
+    {
+        $this->authorizeHomeServiceActor($request, $order);
+        $this->ensureHomeServiceOrder($order);
+        $this->ensureHomeStage($order, [Order::HOME_STAGE_ON_THE_WAY, Order::HOME_STAGE_SCHEDULED]);
+
+        $this->changeStatus($request, $order, 'repairing');
+        $order->update(['home_service_stage' => Order::HOME_STAGE_IN_PROGRESS]);
+
+        return response()->json($order->fresh(['customer', 'device', 'branch']));
+    }
+
+    public function homeServiceMarkDone(Request $request, Order $order): JsonResponse
+    {
+        $this->authorizeHomeServiceActor($request, $order);
+        $this->ensureHomeServiceOrder($order);
+        $this->ensureHomeStage($order, [Order::HOME_STAGE_IN_PROGRESS, Order::HOME_STAGE_ON_THE_WAY]);
+
+        $this->changeStatus($request, $order, 'delivered');
+        $order->update(['home_service_stage' => Order::HOME_STAGE_DONE]);
+
+        return response()->json($order->fresh(['customer', 'device', 'branch']));
+    }
+
     private function assertSameBranch(Request $request, Order $order): void
     {
         $user = $request->user();
@@ -113,6 +181,35 @@ class WorkerOrderFlowController
         }
         if ($user?->branch_id && (int) $order->branch_id !== (int) $user->branch_id) {
             abort(403, 'Order outside user branch.');
+        }
+    }
+
+    private function authorizeHomeServiceActor(Request $request, Order $order): void
+    {
+        $user = $request->user();
+        if (! in_array($user?->role, ['technician', 'owner'], true)) {
+            abort(403, 'Only technician can update home-service flow.');
+        }
+        if ($user?->role !== 'owner' && (int) $order->technician_id !== (int) $user->id) {
+            abort(403, 'Order not assigned to this technician.');
+        }
+        $this->assertSameBranch($request, $order);
+    }
+
+    private function ensureHomeServiceOrder(Order $order): void
+    {
+        if ($order->service_mode !== Order::SERVICE_MODE_HOME) {
+            abort(422, 'This endpoint is only for home-service orders.');
+        }
+    }
+
+    /**
+     * @param array<int, string> $allowedStages
+     */
+    private function ensureHomeStage(Order $order, array $allowedStages): void
+    {
+        if (! in_array((string) $order->home_service_stage, $allowedStages, true)) {
+            abort(422, 'Invalid home-service stage transition.');
         }
     }
 
