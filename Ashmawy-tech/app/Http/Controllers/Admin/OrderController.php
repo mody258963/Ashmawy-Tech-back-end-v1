@@ -158,9 +158,20 @@ class OrderController extends Controller
         $end = $start->copy()->endOfMonth();
         $orders = Order::query()
             ->with(['customer', 'device', 'branch'])
-            ->where('status', 'pending_pickup')
-            ->whereBetween('received_at', [$start, $end])
-            ->orderBy('received_at')
+            ->where(function ($query): void {
+                $query->where('status', 'pending_pickup')
+                    ->orWhere(function ($homeQuery): void {
+                        $homeQuery->where('service_mode', Order::SERVICE_MODE_HOME)
+                            ->whereNotIn('status', ['delivered', 'cancelled'])
+                            ->whereIn('home_service_stage', [
+                                Order::HOME_STAGE_SCHEDULED,
+                                Order::HOME_STAGE_ON_THE_WAY,
+                                Order::HOME_STAGE_IN_PROGRESS,
+                            ]);
+                    });
+            })
+            ->whereBetween(DB::raw('COALESCE(received_at, created_at)'), [$start, $end])
+            ->orderByRaw('COALESCE(received_at, created_at)')
             ->get();
 
         return view('admin.orders.calendar', [
