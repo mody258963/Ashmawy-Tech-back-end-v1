@@ -15,6 +15,14 @@ if [ ! -f "storage/oauth-private.key" ] || [ ! -f "storage/oauth-public.key" ]; 
   php artisan passport:keys --force || true
 fi
 
+if [ -f "storage/oauth-private.key" ] && [ -f "storage/oauth-public.key" ]; then
+  chown www-data:www-data storage/oauth-private.key storage/oauth-public.key
+  chmod 600 storage/oauth-private.key
+  chmod 600 storage/oauth-public.key
+fi
+
+php artisan optimize:clear || true
+
 if [ "${RUN_MIGRATIONS}" = "true" ]; then
   php artisan migrate --force || true
 fi
