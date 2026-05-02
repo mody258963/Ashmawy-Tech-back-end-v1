@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\PerformanceController;
 use App\Http\Controllers\Admin\SalaryController;
 use App\Http\Controllers\Admin\SparePartController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\ClientFinancingFormController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -40,6 +41,11 @@ Route::post('/locale', function (\Illuminate\Http\Request $request) {
 
     return back();
 })->name('locale.switch');
+
+Route::get('/client-financing', [ClientFinancingFormController::class, 'create'])->name('client-financing.form');
+Route::post('/client-financing', [ClientFinancingFormController::class, 'store'])
+    ->middleware('throttle:10,1')
+    ->name('client-financing.submit');
 
 Route::get('/dashboard', function () {
     if (Auth::check() && in_array(Auth::user()->role, ['owner', 'moderator'], true)) {

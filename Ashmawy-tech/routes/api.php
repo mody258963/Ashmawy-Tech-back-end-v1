@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     Route::post('auth/login', [AuthController::class, 'login']);
+    Route::get('client-financing-requests', [ClientFinancingRequestController::class, 'usage']);
     Route::post('client-financing-requests', [ClientFinancingRequestController::class, 'store']);
 
     Route::middleware('auth:api')->group(function () {
