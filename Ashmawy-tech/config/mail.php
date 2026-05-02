@@ -1,5 +1,27 @@
 <?php
 
+/*
+| Laravel 12 + Symfony Mailer: the SMTP scheme must be "smtp" (STARTTLS, e.g. port 587)
+| or "smtps" (implicit TLS, e.g. port 465). Values like "tls" or "ssl" are not accepted.
+*/
+
+$smtpScheme = strtolower(trim((string) env('MAIL_SCHEME', '')));
+
+if ($smtpScheme === '' && filled(env('MAIL_ENCRYPTION'))) {
+    $smtpScheme = strtolower((string) env('MAIL_ENCRYPTION'));
+}
+
+$smtpScheme = match ($smtpScheme) {
+    '', 'null', 'smtp', 'tcp' => ((int) env('MAIL_PORT', 587)) === 465 ? 'smtps' : 'smtp',
+    'tls', 'starttls' => 'smtp',
+    'ssl', 'smtps' => 'smtps',
+    default => ((int) env('MAIL_PORT', 587)) === 465 ? 'smtps' : 'smtp',
+};
+
+if (! in_array($smtpScheme, ['smtp', 'smtps'], true)) {
+    $smtpScheme = 'smtp';
+}
+
 return [
 
     /*
@@ -39,7 +61,7 @@ return [
 
         'smtp' => [
             'transport' => 'smtp',
-            'scheme' => env('MAIL_SCHEME'),
+            'scheme' => $smtpScheme,
             'url' => env('MAIL_URL'),
             'host' => env('MAIL_HOST', '127.0.0.1'),
             'port' => env('MAIL_PORT', 2525),
