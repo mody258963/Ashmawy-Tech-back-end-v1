@@ -5,6 +5,7 @@ namespace App\Http\Requests\Admin;
 use App\Models\Order;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class OrderRequest extends FormRequest
@@ -29,7 +30,12 @@ class OrderRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'device_id' => ['required', 'exists:devices,id'],
+            'device_id' => [
+                'required',
+                Rule::exists('devices', 'id')->where(function ($query) {
+                    $query->where('customer_id', $this->input('customer_id'));
+                }),
+            ],
             'customer_id' => ['required', 'exists:customers,id'],
             'collector_id' => ['nullable', 'exists:users,id'],
             'technician_id' => ['nullable', 'exists:users,id'],

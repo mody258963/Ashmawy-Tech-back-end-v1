@@ -19,9 +19,9 @@
                 </div>
                 <div class="form-group">
                     <label>Device</label>
-                    <select name="device_id" class="form-control" required>
+                    <select id="device_select_order_edit" name="device_id" class="form-control" required>
                         @foreach ($devices as $d)
-                            <option value="{{ $d->id }}" @selected(old('device_id', $order->device_id)==$d->id)>#{{ $d->id }} {{ $d->type }}</option>
+                            <option value="{{ $d->id }}" data-customer-id="{{ $d->customer_id }}" @selected(old('device_id', $order->device_id)==$d->id)>#{{ $d->id }} {{ $d->type }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -133,17 +133,42 @@
     <script>
         (function () {
             const searchInput = document.getElementById('customer_search_order_edit');
-            const select = document.getElementById('customer_select_order_edit');
-            if (!searchInput || !select) {
+            const customerSelect = document.getElementById('customer_select_order_edit');
+            const deviceSelect = document.getElementById('device_select_order_edit');
+            if (!searchInput || !customerSelect || !deviceSelect) {
                 return;
             }
+
+            const syncDevices = function () {
+                const selectedCustomerId = customerSelect.value;
+                let firstVisibleDevice = null;
+
+                Array.from(deviceSelect.options).forEach(function (option) {
+                    const match = option.dataset.customerId === selectedCustomerId;
+                    option.hidden = !match;
+
+                    if (match && !firstVisibleDevice) {
+                        firstVisibleDevice = option;
+                    }
+                });
+
+                if (!deviceSelect.selectedOptions.length || deviceSelect.selectedOptions[0].hidden) {
+                    if (firstVisibleDevice) {
+                        deviceSelect.value = firstVisibleDevice.value;
+                    }
+                }
+            };
+
             searchInput.addEventListener('input', function () {
                 const needle = this.value.toLowerCase().trim();
-                Array.from(select.options).forEach(function (option) {
+                Array.from(customerSelect.options).forEach(function (option) {
                     const match = option.text.toLowerCase().includes(needle);
                     option.hidden = !match;
                 });
             });
+
+            customerSelect.addEventListener('change', syncDevices);
+            syncDevices();
         })();
 
         (function () {
