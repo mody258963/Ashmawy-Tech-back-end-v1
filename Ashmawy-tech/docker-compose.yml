@@ -13,11 +13,16 @@ services:
     environment:
       - APP_ENV=local
       - APP_DEBUG=true
+      - MQTT_HOST=emqx
+      - REDIS_HOST=redis
+      - QUEUE_CONNECTION=redis
     volumes:
       - ./storage:/var/www/html/storage
       - ./.env:/var/www/html/.env
     depends_on:
       - mysql
+      - redis
+      - emqx
     networks:
       - ashmawytech_network
 
@@ -43,6 +48,24 @@ services:
     restart: unless-stopped
     ports:
       - "6379:6379"
+    networks:
+      - ashmawytech_network
+
+  emqx:
+    image: emqx/emqx:5.6
+    container_name: ashmawytech_emqx
+    restart: unless-stopped
+    environment:
+      EMQX_AUTHENTICATION__1__MECHANISM: jwt
+      EMQX_AUTHENTICATION__1__USE_JWKS: "false"
+      EMQX_AUTHENTICATION__1__ALGORITHM: hmac-based
+      EMQX_AUTHENTICATION__1__SECRET: "${IOT_JWT_SECRET:-change-this-secret-min-32-chars-long!!}"
+    ports:
+      - "1883:1883"
+      - "8083:8083"
+      - "8084:8084"
+      - "8883:8883"
+      - "18083:18083"
     networks:
       - ashmawytech_network
 

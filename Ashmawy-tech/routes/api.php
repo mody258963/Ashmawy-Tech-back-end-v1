@@ -1,8 +1,13 @@
 <?php
 
-use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AppointmentController;
+use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ClientFinancingRequestController;
+use App\Http\Controllers\Api\V1\Iot\AuthController as IotAuthController;
+use App\Http\Controllers\Api\V1\Iot\ComponentController as IotComponentController;
+use App\Http\Controllers\Api\V1\Iot\DeviceController as IotDeviceController;
+use App\Http\Controllers\Api\V1\Iot\MeController as IotMeController;
+use App\Http\Controllers\Api\V1\Iot\SensorController as IotSensorController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\OrderSparePartController;
@@ -11,6 +16,25 @@ use App\Http\Controllers\Api\V1\WorkerOrderFlowController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
+    Route::prefix('iot')->group(function (): void {
+        Route::post('auth/login', [IotAuthController::class, 'login']);
+
+        Route::middleware('auth:iot-api')->group(function (): void {
+            Route::post('auth/logout', [IotAuthController::class, 'logout']);
+            Route::get('me', IotMeController::class);
+
+            Route::get('devices', [IotDeviceController::class, 'index']);
+            Route::get('devices/{device}', [IotDeviceController::class, 'show']);
+            Route::post('devices/{device}/jwt/regenerate', [IotDeviceController::class, 'regenerateJwt']);
+
+            Route::get('devices/{device}/components', [IotComponentController::class, 'index']);
+            Route::post('devices/{device}/components/{component}/action', [IotComponentController::class, 'action']);
+
+            Route::get('devices/{device}/sensors', [IotSensorController::class, 'index']);
+            Route::get('devices/{device}/latest', [IotSensorController::class, 'latest']);
+        });
+    });
+
     Route::post('auth/login', [AuthController::class, 'login']);
     Route::get('client-financing-requests', [ClientFinancingRequestController::class, 'usage']);
     Route::post('client-financing-requests', [ClientFinancingRequestController::class, 'store']);

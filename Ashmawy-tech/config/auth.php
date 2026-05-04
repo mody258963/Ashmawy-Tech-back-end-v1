@@ -44,6 +44,14 @@ return [
             'driver' => 'passport',
             'provider' => 'users',
         ],
+        'iot-api' => [
+            'driver' => 'passport',
+            'provider' => 'iot_users',
+        ],
+        'iot-web' => [
+            'driver' => 'session',
+            'provider' => 'iot_users',
+        ],
     ],
 
     /*
@@ -67,6 +75,11 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', App\Models\User::class),
+        ],
+
+        'iot_users' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Iot\IotUser::class,
         ],
 
         // 'users' => [
@@ -97,6 +110,13 @@ return [
     'passwords' => [
         'users' => [
             'provider' => 'users',
+            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+
+        'iot_users' => [
+            'provider' => 'iot_users',
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
             'expire' => 60,
             'throttle' => 60,

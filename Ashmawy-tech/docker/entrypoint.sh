@@ -27,5 +27,7 @@ if [ "${RUN_MIGRATIONS}" = "true" ]; then
   php artisan migrate --force || true
 fi
 
+php artisan iot:ensure-passport-client -n || true
+
 exec "$@"
 
