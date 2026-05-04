@@ -59,7 +59,7 @@ services:
       EMQX_AUTHENTICATION__1__MECHANISM: jwt
       EMQX_AUTHENTICATION__1__USE_JWKS: "false"
       EMQX_AUTHENTICATION__1__ALGORITHM: hmac-based
-      EMQX_AUTHENTICATION__1__SECRET: "${IOT_JWT_SECRET:-change-this-secret-min-32-chars-long!!}"
+      EMQX_AUTHENTICATION__1__SECRET: "${IOT_JWT_SECRET:NUsJccDeurWzmtgVBpdCKnktGa1tFjfAohGzdM2NYKf}"
     ports:
       - "1883:1883"
       - "8083:8083"
