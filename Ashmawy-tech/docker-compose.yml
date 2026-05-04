@@ -37,8 +37,7 @@ services:
       MYSQL_ROOT_PASSWORD: user123
       MYSQL_USER: user
       MYSQL_PASSWORD: user123
-    ports:
-      - "3307:3306"
+    # No host port: app uses DB_HOST=mysql DB_PORT=3306 on this network. Avoids "3307 already allocated" on Dokploy.
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
@@ -48,8 +47,7 @@ services:
     image: redis:7-alpine
     container_name: ashmawytech_redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    # No host port: Laravel uses REDIS_HOST=redis on this network only.
     networks:
       - ashmawytech_network
 
