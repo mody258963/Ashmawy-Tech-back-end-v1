@@ -1,4 +1,6 @@
-version: '3.8'
+# Dokploy: use Git (or upload full repo), not "docker raw" with only this file.
+# Build context must be the folder that contains Dockerfile + this compose file (e.g. Ashmawy-tech/).
+# Set IOT_JWT_SECRET in Dokploy → Environment (same value as in Laravel .env).
 
 services:
   app:
@@ -59,7 +61,8 @@ services:
       EMQX_AUTHENTICATION__1__MECHANISM: jwt
       EMQX_AUTHENTICATION__1__USE_JWKS: "false"
       EMQX_AUTHENTICATION__1__ALGORITHM: hmac-based
-      EMQX_AUTHENTICATION__1__SECRET: "${IOT_JWT_SECRET:NUsJccDeurWzmtgVBpdCKnktGa1tFjfAohGzdM2NYKf}"
+      # Must match Laravel IOT_JWT_SECRET. Set in Dokploy env or a .env file next to this compose (no default in file).
+      EMQX_AUTHENTICATION__1__SECRET: ${IOT_JWT_SECRET}
     ports:
       - "1883:1883"
       - "8083:8083"
