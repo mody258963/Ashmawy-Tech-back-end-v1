@@ -79,4 +79,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(Appointment::class, 'technician_id');
     }
+
+    public function isModerator(): bool
+    {
+        return $this->role === 'moderator';
+    }
+
+    public function isOwner(): bool
+    {
+        return $this->role === 'owner';
+    }
 }

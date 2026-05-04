@@ -57,23 +57,26 @@ Route::get('/dashboard', function () {
 
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
-    Route::resource('branches', BranchController::class)->except(['show']);
-    Route::resource('appointments', AppointmentController::class)->except(['show']);
-    Route::resource('users', UserController::class)->except(['show']);
     Route::resource('customers', CustomerController::class)->except(['show']);
     Route::resource('devices', DeviceController::class)->except(['show']);
     Route::resource('orders', OrderController::class);
     Route::post('orders/{order}/notes', [OrderController::class, 'storeNote'])->name('orders.notes.store');
     Route::get('orders-calendar', [OrderController::class, 'pickupCalendar'])->name('orders.calendar');
     Route::resource('payments', PaymentController::class)->except(['show']);
-    Route::resource('expenses', ExpenseController::class)->except(['show']);
-    Route::resource('follow-ups', FollowUpController::class)->except(['show']);
-    Route::resource('spare-parts', SparePartController::class)->except(['show']);
-    Route::get('performance', [PerformanceController::class, 'index'])->name('performance.index');
-    Route::resource('penalties', PenaltyController::class)->only(['index', 'create', 'store', 'destroy']);
-    Route::resource('fleet-vehicles', FleetVehicleController::class)->except(['show']);
-    Route::resource('fleet-maintenances', FleetMaintenanceController::class)->except(['show']);
-    Route::resource('salaries', SalaryController::class)->except(['show']);
+
+    Route::middleware('admin.owner')->group(function () {
+        Route::resource('branches', BranchController::class)->except(['show']);
+        Route::resource('appointments', AppointmentController::class)->except(['show']);
+        Route::resource('users', UserController::class)->except(['show']);
+        Route::resource('expenses', ExpenseController::class)->except(['show']);
+        Route::resource('follow-ups', FollowUpController::class)->except(['show']);
+        Route::resource('spare-parts', SparePartController::class)->except(['show']);
+        Route::get('performance', [PerformanceController::class, 'index'])->name('performance.index');
+        Route::resource('penalties', PenaltyController::class)->only(['index', 'create', 'store', 'destroy']);
+        Route::resource('fleet-vehicles', FleetVehicleController::class)->except(['show']);
+        Route::resource('fleet-maintenances', FleetMaintenanceController::class)->except(['show']);
+        Route::resource('salaries', SalaryController::class)->except(['show']);
+    });
 });
 
 Route::middleware('auth')->group(function () {

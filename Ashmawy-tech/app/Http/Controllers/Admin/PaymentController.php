@@ -20,18 +20,18 @@ class PaymentController extends Controller
 
     public function index(): View
     {
-        $now = CarbonImmutable::now();
-        $todayStart = $now->startOfDay();
-        $weekStart = $now->startOfWeek();
-        $monthStart = $now->startOfMonth();
+        $cards = [];
+        if (! auth()->user()?->isModerator()) {
+            $now = CarbonImmutable::now();
+            $todayStart = $now->startOfDay();
+            $weekStart = $now->startOfWeek();
+            $monthStart = $now->startOfMonth();
 
-        $sumToday = Payment::query()->where('paid_at', '>=', $todayStart)->sum('amount');
-        $sumWeek = Payment::query()->where('paid_at', '>=', $weekStart)->sum('amount');
-        $sumMonth = Payment::query()->where('paid_at', '>=', $monthStart)->sum('amount');
+            $sumToday = Payment::query()->where('paid_at', '>=', $todayStart)->sum('amount');
+            $sumWeek = Payment::query()->where('paid_at', '>=', $weekStart)->sum('amount');
+            $sumMonth = Payment::query()->where('paid_at', '>=', $monthStart)->sum('amount');
 
-        return view('admin.payments.index', [
-            'payments' => $this->payments->paginate(20),
-            'cards' => [
+            $cards = [
                 [
                     'label' => __('messages.payments_today'),
                     'value' => number_format((float) $sumToday, 2),
@@ -53,7 +53,12 @@ class PaymentController extends Controller
                     'icon' => 'fas fa-calendar-alt',
                     'url' => route('admin.payments.index'),
                 ],
-            ],
+            ];
+        }
+
+        return view('admin.payments.index', [
+            'payments' => $this->payments->paginate(20),
+            'cards' => $cards,
         ]);
     }
 

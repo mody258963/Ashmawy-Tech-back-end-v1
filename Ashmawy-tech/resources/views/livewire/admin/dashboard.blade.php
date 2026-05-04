@@ -1,3 +1,4 @@
+@php($moderator = auth()->user()?->isModerator())
 <div>
     <div class="row">
         <div class="col-lg-3 col-6">
@@ -20,6 +21,7 @@
                 <a href="{{ route('admin.orders.index') }}" class="small-box-footer">{{ __('messages.more') }} <i class="fas fa-arrow-circle-right"></i></a>
             </div>
         </div>
+        @unless ($moderator)
         <div class="col-lg-3 col-6">
             <div class="small-box bg-success">
                 <div class="inner">
@@ -40,8 +42,10 @@
                 <a href="{{ route('admin.spare-parts.index') }}" class="small-box-footer">{{ __('messages.more') }} <i class="fas fa-arrow-circle-right"></i></a>
             </div>
         </div>
+        @endunless
     </div>
 
+    @unless ($moderator)
     <div class="row">
         <div class="col-12">
             <div class="card">
@@ -71,9 +75,10 @@
             </div>
         </div>
     </div>
+    @endunless
 
     <div class="row">
-        <div class="col-md-6">
+        <div class="{{ $moderator ? 'col-12' : 'col-md-6' }}">
             <div class="card">
                 <div class="card-header">
                     <h3 class="card-title">{{ __('messages.orders_by_status') }}</h3>
@@ -99,6 +104,7 @@
             </div>
         </div>
 
+        @unless ($moderator)
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">
@@ -156,8 +162,10 @@
                 </div>
             </div>
         </div>
+        @endunless
     </div>
 
+    @unless ($moderator)
     <div class="row">
         <div class="col-md-6">
             <div class="card">
@@ -203,4 +211,5 @@
             </div>
         </div>
     </div>
+    @endunless
 </div>
