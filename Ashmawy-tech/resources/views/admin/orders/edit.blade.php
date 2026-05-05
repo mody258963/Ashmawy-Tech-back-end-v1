@@ -55,6 +55,11 @@
                 <div class="form-group"><label>Estimated cost</label><input type="text" name="estimated_cost" class="form-control" value="{{ old('estimated_cost', $order->estimated_cost) }}" required></div>
                 <div class="form-group"><label>Final cost</label><input type="text" name="final_cost" class="form-control" value="{{ old('final_cost', $order->final_cost) }}"></div>
                 <div class="form-group">
+                    <label>Order expense</label>
+                    <input type="text" name="expense_amount" class="form-control" value="{{ old('expense_amount', $order->expenses->sum('amount')) }}" placeholder="0.00">
+                    <small class="form-text text-muted">Saved automatically to Expenses when order is updated.</small>
+                </div>
+                <div class="form-group">
                     <label>Service mode</label>
                     <select name="service_mode" class="form-control" id="service_mode_edit">
                         <option value="workshop" @selected(old('service_mode', $order->service_mode ?? 'workshop') === 'workshop')>Workshop (normal flow)</option>

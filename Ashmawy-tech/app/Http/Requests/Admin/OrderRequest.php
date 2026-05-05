@@ -17,6 +17,7 @@ class OrderRequest extends FormRequest
             'collector_id' => $this->filled('collector_id') ? $this->input('collector_id') : null,
             'technician_id' => $this->filled('technician_id') ? $this->input('technician_id') : null,
             'final_cost' => $this->emptyStringToNull('final_cost'),
+            'expense_amount' => $this->emptyStringToNull('expense_amount'),
             'received_at' => $this->emptyStringToNull('received_at'),
             'delivered_at' => $this->emptyStringToNull('delivered_at'),
             'service_mode' => $this->input('service_mode', Order::SERVICE_MODE_WORKSHOP),
@@ -41,13 +42,14 @@ class OrderRequest extends FormRequest
             'technician_id' => ['nullable', 'exists:users,id'],
             'estimated_cost' => ['required', 'numeric', 'min:0'],
             'final_cost' => ['nullable', 'numeric', 'min:0'],
+            'expense_amount' => ['nullable', 'numeric', 'min:0'],
             'status' => ['required', 'in:'.implode(',', Order::STATUSES)],
             'service_mode' => ['required', 'in:'.Order::SERVICE_MODE_WORKSHOP.','.Order::SERVICE_MODE_HOME],
             'home_service_stage' => ['nullable', 'in:'.implode(',', Order::HOME_STAGES)],
             'approved' => ['sometimes', 'boolean'],
             'received_at' => ['nullable', 'date', 'required_if:status,pending_pickup'],
             'delivered_at' => ['nullable', 'date'],
-            'branch_id' => ['nullable', 'exists:branches,id'],
+            'branch_id' => ['nullable', 'exists:branches,id', 'required_with:expense_amount'],
             'parts' => ['nullable', 'array'],
             'parts.*.spare_part_id' => ['nullable', 'integer', 'exists:spare_parts,id'],
             'parts.*.quantity' => ['nullable', 'integer', 'min:1'],
@@ -74,9 +76,16 @@ class OrderRequest extends FormRequest
                 $data['status'] = 'received';
             }
         }
-        unset($data['parts']);
+        unset($data['parts'], $data['expense_amount']);
 
         return $data;
+    }
+
+    public function validatedExpenseAmount(): ?float
+    {
+        $value = $this->validated('expense_amount');
+
+        return $value === null ? null : (float) $value;
     }
 
     /**

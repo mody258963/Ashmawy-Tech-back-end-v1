@@ -21,6 +21,7 @@
                     <p><strong>Branch:</strong> {{ $order->branch?->name ?? '—' }}</p>
                     <p><strong>Estimated:</strong> {{ $order->estimated_cost }}</p>
                     <p><strong>Final:</strong> {{ $order->final_cost ?? '—' }}</p>
+                    <p><strong>Order expenses:</strong> {{ number_format((float) $order->expenses->sum('amount'), 2) }}</p>
                     <p><strong>Approved:</strong> {{ $order->approved ? 'Yes' : 'No' }}</p>
                 </div>
             </div>

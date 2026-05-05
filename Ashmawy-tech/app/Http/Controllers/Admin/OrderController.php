@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\OrderNoteRequest;
 use App\Http\Requests\Admin\OrderRequest;
+use App\Models\Expense;
 use App\Models\InventoryMovement;
 use App\Models\Order;
 use App\Models\Payment;
@@ -26,6 +27,8 @@ use RuntimeException;
 
 class OrderController extends Controller
 {
+    private const AUTO_EXPENSE_DESCRIPTION = '[AUTO_ORDER_EXPENSE]';
+
     public function __construct(
         private readonly OrderRepository $orders,
         private readonly CustomerRepository $customers,
@@ -86,10 +89,12 @@ class OrderController extends Controller
     public function store(OrderRequest $request): RedirectResponse
     {
         $data = $request->validatedOrderData();
+        $expenseAmount = $request->validatedExpenseAmount();
         $spareParts = $request->validatedSpareParts();
-        $order = DB::transaction(function () use ($data, $spareParts, $request): Order {
+        $order = DB::transaction(function () use ($data, $expenseAmount, $spareParts, $request): Order {
             $data['order_number'] = $this->uniqueOrderNumber();
             $order = $this->orders->create($data);
+            $this->syncOrderExpense($order, $expenseAmount, (int) $request->user()->id);
             $this->statusHistory->create([
                 'order_id' => $order->id,
                 'from_status' => '',
@@ -131,8 +136,9 @@ class OrderController extends Controller
         $existing = $this->orders->find($order);
         $oldStatus = $existing->status;
         $data = $request->validatedOrderData();
+        $expenseAmount = $request->validatedExpenseAmount();
         $spareParts = $request->validatedSpareParts();
-        DB::transaction(function () use ($order, $data, $oldStatus, $request, $spareParts): void {
+        DB::transaction(function () use ($order, $data, $expenseAmount, $oldStatus, $request, $spareParts): void {
             $this->orders->update($order, $data);
             if (($data['status'] ?? $oldStatus) !== $oldStatus) {
                 $this->statusHistory->create([
@@ -144,6 +150,7 @@ class OrderController extends Controller
                 ]);
             }
             $updated = $this->orders->find($order);
+            $this->syncOrderExpense($updated, $expenseAmount, (int) $request->user()->id);
             $this->syncOrderParts($updated, $spareParts, (int) $request->user()->id);
             $this->ensureDeliveredPayment($updated, (int) $request->user()->id);
         });
@@ -279,6 +286,43 @@ class OrderController extends Controller
             'received_by' => $actorId,
             'paid_at' => now(),
         ]);
+    }
+
+    private function syncOrderExpense(Order $order, ?float $amount, int $actorId): void
+    {
+        $existing = Expense::query()
+            ->where('order_id', $order->id)
+            ->where('description', self::AUTO_EXPENSE_DESCRIPTION)
+            ->first();
+
+        if ($amount === null || $amount <= 0) {
+            if ($existing) {
+                $existing->delete();
+            }
+
+            return;
+        }
+
+        if (! $order->branch_id) {
+            abort(422, 'Branch is required when adding order expense.');
+        }
+
+        $payload = [
+            'branch_id' => $order->branch_id,
+            'title' => 'Order '.$order->order_number.' expense',
+            'amount' => $amount,
+            'description' => self::AUTO_EXPENSE_DESCRIPTION,
+            'created_by' => $existing?->created_by ?? $actorId,
+        ];
+
+        if ($existing) {
+            $existing->update($payload);
+
+            return;
+        }
+
+        $payload['order_id'] = $order->id;
+        Expense::query()->create($payload);
     }
 
     private function uniqueOrderNumber(): string
