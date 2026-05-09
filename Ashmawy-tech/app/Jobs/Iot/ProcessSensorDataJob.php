@@ -35,10 +35,6 @@ class ProcessSensorDataJob implements ShouldQueue
         IotRealtimeStore $realtime,
         AutomationEngineStub $automation,
     ): void {
-        if (! $idempotency->claim($this->messageId)) {
-            return;
-        }
-
         $device = $devices->findByUuidForUser($this->deviceUuid, $this->iotUserId);
         if ($device === null) {
             Log::warning('IoT sensor message skipped: no device for topic user/uuid', [
@@ -47,6 +43,10 @@ class ProcessSensorDataJob implements ShouldQueue
                 'sensor_type' => $this->sensorType,
             ]);
 
+            return;
+        }
+
+        if (! $idempotency->claim($this->messageId)) {
             return;
         }
 

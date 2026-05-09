@@ -10,6 +10,9 @@ class IotMessageIdempotency
 {
     /**
      * @return bool true if this message should be processed (first time), false if duplicate
+     *
+     * Call only after the message is routed to a valid device (and component when applicable).
+     * Claiming before DB resolution would block retries when the topic was wrong initially.
      */
     public function claim(string $messageId): bool
     {

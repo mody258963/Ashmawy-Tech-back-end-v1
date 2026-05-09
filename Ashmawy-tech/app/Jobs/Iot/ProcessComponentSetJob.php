@@ -31,10 +31,6 @@ class ProcessComponentSetJob implements ShouldQueue
         IotMessageIdempotency $idempotency,
         AutomationEngineStub $automation,
     ): void {
-        if (! $idempotency->claim($this->messageId)) {
-            return;
-        }
-
         $device = $devices->findByUuidForUser($this->deviceUuid, $this->iotUserId);
         if ($device === null) {
             return;
@@ -46,6 +42,10 @@ class ProcessComponentSetJob implements ShouldQueue
             ->first();
 
         if ($component === null) {
+            return;
+        }
+
+        if (! $idempotency->claim($this->messageId)) {
             return;
         }
 

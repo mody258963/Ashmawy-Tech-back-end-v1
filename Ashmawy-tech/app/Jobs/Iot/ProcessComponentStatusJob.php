@@ -37,10 +37,6 @@ class ProcessComponentStatusJob implements ShouldQueue
         IotRealtimeStore $realtime,
         AutomationEngineStub $automation,
     ): void {
-        if (! $idempotency->claim($this->messageId)) {
-            return;
-        }
-
         $device = $devices->findByUuidForUser($this->deviceUuid, $this->iotUserId);
         if ($device === null) {
             Log::warning('IoT component status skipped: no device for topic user/uuid', [
@@ -49,6 +45,10 @@ class ProcessComponentStatusJob implements ShouldQueue
                 'channel' => $this->channel,
             ]);
 
+            return;
+        }
+
+        if (! $idempotency->claim($this->messageId)) {
             return;
         }
 
