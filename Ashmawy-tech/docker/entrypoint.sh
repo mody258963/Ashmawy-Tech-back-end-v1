@@ -29,5 +29,24 @@ fi
 
 php artisan iot:ensure-passport-client -n || true
 
+# IoT ingestion auto-start:
+# - Default image CMD runs supervisord, which already starts:
+#     iot-mqtt-subscribe  → php artisan iot:mqtt-subscribe
+#     laravel-queue-iot   → php artisan queue:work … --queue=iot
+#   See docker/supervisord.conf
+# - If your platform overrides CMD (not supervisord), set START_IOT_INGESTION=true
+#   so these run in the background before the main process.
+case "${1:-}" in
+  /usr/bin/supervisord)
+    ;;
+  *)
+    if [ "${START_IOT_INGESTION}" = "true" ]; then
+      echo "entrypoint: START_IOT_INGESTION=true — starting MQTT subscriber and iot queue worker"
+      php artisan iot:mqtt-subscribe >> storage/logs/iot-mqtt.log 2>&1 &
+      php artisan queue:work --queue=iot --sleep=1 --tries=3 --backoff=2 --timeout=120 >> storage/logs/iot-queue.log 2>&1 &
+    fi
+    ;;
+esac
+
 exec "$@"
 
