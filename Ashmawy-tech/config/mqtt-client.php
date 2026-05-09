@@ -20,7 +20,7 @@ return [
 
             'client_id' => env('MQTT_CLIENT_ID', 'laravel-iot-backend'),
 
-            'use_clean_session' => env('MQTT_CLEAN_SESSION', true),
+            'use_clean_session' =>false,
 
             'enable_logging' => env('MQTT_ENABLE_LOGGING', false),
 
@@ -62,7 +62,7 @@ return [
                 'keep_alive_interval' => env('MQTT_KEEP_ALIVE_INTERVAL', 10),
 
                 'auto_reconnect' => [
-                    'enabled' => env('MQTT_AUTO_RECONNECT_ENABLED', true),
+                    'enabled' => true,
                     'max_reconnect_attempts' => env('MQTT_AUTO_RECONNECT_MAX_RECONNECT_ATTEMPTS', 10),
                     'delay_between_reconnect_attempts' => env('MQTT_AUTO_RECONNECT_DELAY_BETWEEN_RECONNECT_ATTEMPTS', 1),
                 ],
