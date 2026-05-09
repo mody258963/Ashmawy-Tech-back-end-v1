@@ -14,13 +14,17 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-class ProcessDeviceStatusJob implements ShouldQueue
+/**
+ * Device-published actuator/module status (MQTT .../component/{ch}/status) → Redis snapshot only.
+ */
+class ProcessComponentStatusJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public function __construct(
         public int $iotUserId,
         public string $deviceUuid,
+        public int $channel,
         public string $rawMessage,
         public string $messageId,
     ) {
@@ -39,40 +43,24 @@ class ProcessDeviceStatusJob implements ShouldQueue
 
         $device = $devices->findByUuidForUser($this->deviceUuid, $this->iotUserId);
         if ($device === null) {
-            Log::warning('IoT device status skipped: no device for topic user/uuid', [
+            Log::warning('IoT component status skipped: no device for topic user/uuid', [
                 'iot_user_id' => $this->iotUserId,
                 'device_uuid' => $this->deviceUuid,
+                'channel' => $this->channel,
             ]);
 
             return;
         }
 
-        $payload = json_decode($this->rawMessage, true);
-        $status = is_array($payload) && isset($payload['status']) ? (string) $payload['status'] : 'online';
-        if (! in_array($status, ['online', 'offline'], true)) {
-            $status = 'online';
-        }
-
-        $normalizedPayload = is_array($payload) ? $payload : ['raw' => $this->rawMessage];
+        $decoded = json_decode($this->rawMessage, true);
+        $payload = is_array($decoded) ? $decoded : ['raw' => $this->rawMessage];
 
         try {
-            $realtime->putDevicePresence((int) $device->id, $normalizedPayload, $status);
+            $realtime->putModuleStatus((int) $device->id, $this->channel, $payload, $this->messageId);
         } catch (Throwable $e) {
-            Log::error('IoT Redis device presence write failed: '.$e->getMessage());
+            Log::error('IoT Redis module status write failed: '.$e->getMessage());
         }
 
-        $device->forceFill([
-            'status' => $status,
-            'last_seen' => now(),
-        ])->save();
-
-        $device->iotEvents()->create([
-            'type' => 'device_status',
-            'payload' => $normalizedPayload,
-            'message_id' => $this->messageId,
-            'created_at' => now(),
-        ]);
-
-        $automation->onDeviceEvent($device->id, 'device_status', is_array($payload) ? $payload : null);
+        $automation->onDeviceEvent($device->id, 'component_status', $payload);
     }
 }

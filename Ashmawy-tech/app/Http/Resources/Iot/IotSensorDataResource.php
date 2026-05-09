@@ -16,7 +16,7 @@ class IotSensorDataResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
+            'id' => $this->when(isset($this->id), $this->id),
             'type' => $this->type,
             'value' => $this->value,
             'recorded_at' => $this->recorded_at?->toIso8601String(),

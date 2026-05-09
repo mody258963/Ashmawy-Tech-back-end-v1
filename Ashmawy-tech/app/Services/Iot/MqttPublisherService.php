@@ -30,6 +30,7 @@ class MqttPublisherService
             'ts' => now()->toIso8601String(),
         ];
 
+        // QoS 1 — user / API initiated actions must be delivered at least once to the device.
         $client = $this->mqtt->connection();
         $client->publish($topic, json_encode($payload), MqttClient::QOS_AT_LEAST_ONCE, false);
     }

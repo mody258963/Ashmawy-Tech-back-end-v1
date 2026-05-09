@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\ClientFinancingRequestController;
 use App\Http\Controllers\Api\V1\Iot\AuthController as IotAuthController;
 use App\Http\Controllers\Api\V1\Iot\ComponentController as IotComponentController;
 use App\Http\Controllers\Api\V1\Iot\DeviceController as IotDeviceController;
+use App\Http\Controllers\Api\V1\Iot\IngestionController as IotIngestionController;
 use App\Http\Controllers\Api\V1\Iot\MeController as IotMeController;
 use App\Http\Controllers\Api\V1\Iot\SensorController as IotSensorController;
 use App\Http\Controllers\Api\V1\MeController;
@@ -32,6 +33,10 @@ Route::prefix('v1')->group(function () {
 
             Route::get('devices/{device}/sensors', [IotSensorController::class, 'index']);
             Route::get('devices/{device}/latest', [IotSensorController::class, 'latest']);
+
+            Route::post('ingestion/heartbeat', [IotIngestionController::class, 'heartbeat'])
+                ->middleware('throttle:120,1');
+            Route::get('ingestion/lease', [IotIngestionController::class, 'leaseStatus']);
         });
     });
 

@@ -6,12 +6,14 @@ use App\Models\Iot\IotSensorData;
 use App\Repository\Iot\IotDeviceRepository;
 use App\Services\Iot\AutomationEngineStub;
 use App\Services\Iot\IotMessageIdempotency;
+use App\Services\Iot\IotRealtimeStore;
 use Illuminate\Bus\Queueable;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class ProcessSensorDataJob implements ShouldQueue
 {
@@ -30,6 +32,7 @@ class ProcessSensorDataJob implements ShouldQueue
     public function handle(
         IotDeviceRepository $devices,
         IotMessageIdempotency $idempotency,
+        IotRealtimeStore $realtime,
         AutomationEngineStub $automation,
     ): void {
         if (! $idempotency->claim($this->messageId)) {
@@ -50,13 +53,21 @@ class ProcessSensorDataJob implements ShouldQueue
         $decoded = json_decode($this->rawMessage, true);
         $value = is_array($decoded) ? $decoded : ['raw' => $this->rawMessage];
 
-        IotSensorData::query()->create([
-            'iot_device_id' => $device->id,
-            'type' => $this->sensorType,
-            'value' => $value,
-            'message_id' => $this->messageId,
-            'recorded_at' => now(),
-        ]);
+        try {
+            $realtime->putSensorLatest((int) $device->id, $this->sensorType, $value, $this->messageId);
+        } catch (Throwable $e) {
+            Log::error('IoT Redis sensor write failed: '.$e->getMessage());
+        }
+
+        if (config('iot.persist_sensor_readings_to_database', false)) {
+            IotSensorData::query()->create([
+                'iot_device_id' => $device->id,
+                'type' => $this->sensorType,
+                'value' => $value,
+                'message_id' => $this->messageId,
+                'recorded_at' => now(),
+            ]);
+        }
 
         $automation->onSensorReading($device->id, $this->sensorType, $value);
     }

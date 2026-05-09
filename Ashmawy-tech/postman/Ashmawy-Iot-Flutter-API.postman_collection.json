@@ -1,0 +1,248 @@
+{
+	"info": {
+		"_postman_id": "e8f3b2a1-4c5d-4e6f-9a0b-1c2d3e4f5a6b",
+		"name": "Ashmawy Tech — IoT Flutter API",
+		"description": "Tests **Passport `iot-api`** routes under `{{base_url}}/v1/iot/*`.\n\n1. Set **`base_url`** (e.g. `https://tppower.shop/api`).\n2. Set **`iot_device_id`** / **`iot_component_id`** after listing devices/components.\n3. Run **IoT — Login** first; it saves **`iot_access_token`** on success.\n4. Other IoT requests use `Authorization: Bearer {{iot_access_token}}`.\n\nWorker/main app uses **`POST {{base_url}}/v1/auth/login`** (different guard); not included here.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{ "key": "base_url", "value": "https://tppower.shop/api" },
+		{ "key": "iot_access_token", "value": "" },
+		{ "key": "iot_device_id", "value": "1" },
+		{ "key": "iot_component_id", "value": "1" }
+	],
+	"item": [
+		{
+			"name": "IoT — Auth",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"try {",
+									"    var j = pm.response.json();",
+									"    if (j.token) { pm.collectionVariables.set('iot_access_token', j.token); }",
+									"} catch (e) {}"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [
+							{ "key": "Accept", "value": "application/json" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"iot-user@example.com\",\n  \"password\": \"your-password\",\n  \"device_name\": \"postman-flutter\"\n}"
+						},
+						"url": "{{base_url}}/v1/iot/auth/login",
+						"description": "Returns `{ token, token_type, user }`. Token is stored in collection variable `iot_access_token`."
+					}
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{iot_access_token}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"url": "{{base_url}}/v1/iot/auth/logout"
+					}
+				}
+			]
+		},
+		{
+			"name": "IoT — Account",
+			"item": [
+				{
+					"name": "Me",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{iot_access_token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [{ "key": "Accept", "value": "application/json" }],
+						"url": "{{base_url}}/v1/iot/me"
+					}
+				}
+			]
+		},
+		{
+			"name": "IoT — Devices",
+			"item": [
+				{
+					"name": "List devices",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{iot_access_token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [{ "key": "Accept", "value": "application/json" }],
+						"url": "{{base_url}}/v1/iot/devices"
+					}
+				},
+				{
+					"name": "Show device (+ realtime snapshot)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{iot_access_token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [{ "key": "Accept", "value": "application/json" }],
+						"url": "{{base_url}}/v1/iot/devices/{{iot_device_id}}"
+					}
+				},
+				{
+					"name": "Regenerate device MQTT JWT",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{iot_access_token}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [{ "key": "Accept", "value": "application/json" }],
+						"url": "{{base_url}}/v1/iot/devices/{{iot_device_id}}/jwt/regenerate"
+					}
+				}
+			]
+		},
+		{
+			"name": "IoT — Components",
+			"item": [
+				{
+					"name": "List components",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{iot_access_token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [{ "key": "Accept", "value": "application/json" }],
+						"url": "{{base_url}}/v1/iot/devices/{{iot_device_id}}/components"
+					}
+				},
+				{
+					"name": "Component action (MQTT publish QoS 1)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{iot_access_token}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [
+							{ "key": "Accept", "value": "application/json" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"ON\",\n  \"value\": null\n}"
+						},
+						"url": "{{base_url}}/v1/iot/devices/{{iot_device_id}}/components/{{iot_component_id}}/action",
+						"description": "`action`: ON | OFF | TOGGLE | SET. Optional `value` array for SET."
+					}
+				},
+				{
+					"name": "Component action SET with value",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{iot_access_token}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [
+							{ "key": "Accept", "value": "application/json" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"SET\",\n  \"value\": { \"brightness\": 80 }\n}"
+						},
+						"url": "{{base_url}}/v1/iot/devices/{{iot_device_id}}/components/{{iot_component_id}}/action"
+					}
+				}
+			]
+		},
+		{
+			"name": "IoT — Sensors",
+			"item": [
+				{
+					"name": "Paginated sensor history",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{iot_access_token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [{ "key": "Accept", "value": "application/json" }],
+						"url": "{{base_url}}/v1/iot/devices/{{iot_device_id}}/sensors",
+						"description": "Uses DB history only when `IOT_PERSIST_SENSOR_READINGS_TO_DB=true`; otherwise Redis-backed snapshot page."
+					}
+				},
+				{
+					"name": "Latest readings per type",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{iot_access_token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [{ "key": "Accept", "value": "application/json" }],
+						"url": "{{base_url}}/v1/iot/devices/{{iot_device_id}}/latest",
+						"description": "Prefers Redis snapshots; see `meta.source` in JSON."
+					}
+				}
+			]
+		},
+		{
+			"name": "IoT — Ingestion lease",
+			"item": [
+				{
+					"name": "Heartbeat (demand-gated subscriber)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{iot_access_token}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [
+							{ "key": "Accept", "value": "application/json" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"ttl_seconds\": 900\n}"
+						},
+						"url": "{{base_url}}/v1/iot/ingestion/heartbeat",
+						"description": "Only required when `IOT_SUBSCRIBER_DEMAND_GATED=true`. Flutter should call periodically while UI needs live MQTT ingestion."
+					}
+				},
+				{
+					"name": "Lease status",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{iot_access_token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [{ "key": "Accept", "value": "application/json" }],
+						"url": "{{base_url}}/v1/iot/ingestion/lease"
+					}
+				}
+			]
+		}
+	]
+}
