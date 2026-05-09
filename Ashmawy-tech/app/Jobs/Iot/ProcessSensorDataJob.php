@@ -7,6 +7,7 @@ use App\Repository\Iot\IotDeviceRepository;
 use App\Services\Iot\AutomationEngineStub;
 use App\Services\Iot\IotMessageIdempotency;
 use Illuminate\Bus\Queueable;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -37,6 +38,12 @@ class ProcessSensorDataJob implements ShouldQueue
 
         $device = $devices->findByUuidForUser($this->deviceUuid, $this->iotUserId);
         if ($device === null) {
+            Log::warning('IoT sensor message skipped: no device for topic user/uuid', [
+                'iot_user_id' => $this->iotUserId,
+                'device_uuid' => $this->deviceUuid,
+                'sensor_type' => $this->sensorType,
+            ]);
+
             return;
         }
 
