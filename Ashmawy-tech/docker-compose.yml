@@ -1,6 +1,6 @@
-# Dokploy: use Git (or upload full repo), not "docker raw" with only this file.
-# Build context must be the folder that contains Dockerfile + this compose file (e.g. Ashmawy-tech/).
-# Set IOT_JWT_SECRET in Dokploy → Environment (same value as in Laravel .env).
+# Dokploy: use Git (or upload full repo), not "docker raw"
+# Build context must include Dockerfile + this compose file
+# Set IOT_JWT_SECRET in Dokploy environment (same as Laravel .env)
 
 services:
   app:
@@ -8,16 +8,17 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
-    container_name: ashmawytech_app
     restart: unless-stopped
     ports:
       - "8000:80"
     environment:
-      - APP_ENV=local
-      - APP_DEBUG=true
-      - MQTT_HOST=emqx
-      - REDIS_HOST=redis
-      - QUEUE_CONNECTION=redis
+      APP_ENV: local
+      APP_DEBUG: "true"
+      MQTT_HOST: emqx
+      REDIS_HOST: redis
+      DB_HOST: mysql
+      DB_PORT: 3306
+      QUEUE_CONNECTION: redis
     volumes:
       - ./storage:/var/www/html/storage
       - ./.env:/var/www/html/.env
@@ -30,14 +31,12 @@ services:
 
   mysql:
     image: mysql:8.0
-    container_name: ashmawytech_mysql
     restart: unless-stopped
     environment:
       MYSQL_DATABASE: user
       MYSQL_ROOT_PASSWORD: user123
       MYSQL_USER: user
       MYSQL_PASSWORD: user123
-    # No host port: app uses DB_HOST=mysql DB_PORT=3306 on this network. Avoids "3307 already allocated" on Dokploy.
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
@@ -45,21 +44,17 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: ashmawytech_redis
     restart: unless-stopped
-    # No host port: Laravel uses REDIS_HOST=redis on this network only.
     networks:
       - ashmawytech_network
 
   emqx:
     image: emqx/emqx:5.6
-    container_name: ashmawytech_emqx
     restart: unless-stopped
     environment:
       EMQX_AUTHENTICATION__1__MECHANISM: jwt
       EMQX_AUTHENTICATION__1__USE_JWKS: "false"
       EMQX_AUTHENTICATION__1__ALGORITHM: hmac-based
-      # Must match Laravel IOT_JWT_SECRET. Set in Dokploy env or a .env file next to this compose (no default in file).
       EMQX_AUTHENTICATION__1__SECRET: ${IOT_JWT_SECRET}
     ports:
       - "1883:1883"
@@ -75,5 +70,5 @@ volumes:
 
 networks:
   ashmawytech_network:
-    driver: bridge
-
+    external: true
+    name: ashmawytech_network
