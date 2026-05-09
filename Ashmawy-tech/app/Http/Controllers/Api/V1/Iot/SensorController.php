@@ -32,15 +32,18 @@ class SensorController extends Controller
         }
 
         $items = $this->sensorSnapshotRows($model->id);
-        $paginator = new LengthAwarePaginator(
-            $items,
-            $items->count(),
-            max(1, $items->count()),
-            1,
-            ['path' => $request->url()],
-        );
+        if ($items->isEmpty()) {
+            return IotSensorDataResource::collection($this->sensorData->paginateForDevice($model, 50));
+        }
 
-        return IotSensorDataResource::collection($paginator);
+        $perPage = min(100, max(1, (int) $request->input('per_page', 50)));
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $total = $items->count();
+        $slice = $items->slice(($page - 1) * $perPage, $perPage)->values();
+
+        return IotSensorDataResource::collection(
+            new LengthAwarePaginator($slice->all(), $total, $perPage, $page, ['path' => $request->url()]),
+        );
     }
 
     public function latest(Request $request, int $device): JsonResponse
@@ -56,18 +59,25 @@ class SensorController extends Controller
             ]);
         }
 
-        if (config('iot.persist_sensor_readings_to_database', false)) {
-            $rows = $this->sensorData->latestPerType($model, 50);
+        $rows = $this->sensorData->latestPerType($model, 50);
+        if ($rows->isNotEmpty()) {
+            $meta = ['source' => 'database'];
+            if (! config('iot.persist_sensor_readings_to_database', false)) {
+                $meta['note'] = 'Redis had no snapshot; showing last rows from database (enable IOT_PERSIST_SENSOR_READINGS_TO_DB or fix Redis/MQTT for live data).';
+            }
 
             return response()->json([
                 'data' => IotSensorDataResource::collection($rows),
-                'meta' => ['source' => 'database'],
+                'meta' => $meta,
             ]);
         }
 
         return response()->json([
             'data' => [],
-            'meta' => ['source' => 'none'],
+            'meta' => [
+                'source' => 'none',
+                'hint' => 'Use GET /v1/iot/devices — the path id is iot_devices.id (may differ from MQTT iot_user_id). Then GET .../latest for current temperature.',
+            ],
         ]);
     }
 
