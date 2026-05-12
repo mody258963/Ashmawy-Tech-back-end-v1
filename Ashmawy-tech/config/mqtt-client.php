@@ -22,7 +22,7 @@ return [
 
             'use_clean_session' => filter_var(env('MQTT_CLEAN_SESSION', false), FILTER_VALIDATE_BOOL),
 
-            'enable_logging' => env('MQTT_ENABLE_LOGGING', false),
+            'enable_logging' => filter_var(env('MQTT_ENABLE_LOGGING', false), FILTER_VALIDATE_BOOL),
 
             'log_channel' => env('MQTT_LOG_CHANNEL', null),
 
@@ -61,8 +61,10 @@ return [
 
                 'keep_alive_interval' => env('MQTT_KEEP_ALIVE_INTERVAL', 10),
 
+                // Library-level auto-reconnect can hammer EMQX with a stale client_id when ConnectionManager
+                // pools connections; the IoT subscriber uses explicit disconnect + sleep + reconnect instead.
                 'auto_reconnect' => [
-                    'enabled' => filter_var(env('MQTT_AUTO_RECONNECT_ENABLED', true), FILTER_VALIDATE_BOOL),
+                    'enabled' => filter_var(env('MQTT_AUTO_RECONNECT_ENABLED', false), FILTER_VALIDATE_BOOL),
                     'max_reconnect_attempts' => env('MQTT_AUTO_RECONNECT_MAX_RECONNECT_ATTEMPTS', 10),
                     'delay_between_reconnect_attempts' => env('MQTT_AUTO_RECONNECT_DELAY_BETWEEN_RECONNECT_ATTEMPTS', 1),
                 ],

@@ -34,13 +34,25 @@ class MqttPublisherService
         ];
 
         /*
-         * EMQX: one live session per client_id. php-fpm shares env MQTT_CLIENT_ID across workers → duplicate
-         * connects cause broker to close sockets (EOF). Use a unique id per publish and disconnect so the
-         * next request gets a clean session (see IotMqttSubscribe for long-lived subscriber id).
+         * EMQX: one live session per client_id. Drop any pooled MQTT connection first so php-mqtt does not
+         * reuse a client built with a stale client_id, then assign a unique id (hostname + pid + entropy).
          */
-        $base = (string) env('MQTT_CLIENT_ID', 'laravel-iot-backend');
         $clientIdKey = 'mqtt-client.connections.'.self::CONNECTION.'.client_id';
-        Config::set($clientIdKey, $base.'-pub-'.getmypid().'-'.Str::lower(Str::random(8)));
+        $base = (string) config($clientIdKey, 'laravel-iot-backend');
+        $base = (string) preg_replace('/-(pub|sub)-.*$/', '', $base) ?: 'laravel-iot-backend';
+
+        try {
+            $this->mqtt->disconnect(self::CONNECTION);
+        } catch (\Throwable) {
+            // No pooled connection yet.
+        }
+
+        $hostSlug = strtolower((string) preg_replace('/[^a-zA-Z0-9]+/', '-', (string) gethostname()));
+        $hostSlug = trim($hostSlug, '-') ?: 'host';
+        Config::set(
+            $clientIdKey,
+            $base.'-pub-'.$hostSlug.'-'.getmypid().'-'.Str::lower(Str::random(8)),
+        );
 
         try {
             $client = $this->mqtt->connection(self::CONNECTION);

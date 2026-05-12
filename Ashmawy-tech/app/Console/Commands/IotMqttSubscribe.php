@@ -106,20 +106,21 @@ class IotMqttSubscribe extends Command
     }
 
     /**
-     * EMQX allows one session per MQTT client id. Duplicate artisan/supervisor/subscriber processes
-     * sharing the same id kick each other off (EOF storm). Append PID so each OS process is unique.
+     * EMQX: one online session per client_id. Include hostname so two app containers with the same PID
+     * (e.g. both 28) never share one id; include PID so two processes on one host never collide.
      */
     private function ensureUniqueSubscriberClientId(string $connection): void
     {
         $key = 'mqtt-client.connections.'.$connection.'.client_id';
-        $base = (string) config($key);
+        $base = (string) env('MQTT_CLIENT_ID', 'laravel-iot-backend');
         if ($base === '') {
             $base = 'laravel-iot-backend';
         }
 
-        if (! str_ends_with($base, '-sub-'.getmypid())) {
-            Config::set($key, $base.'-sub-'.getmypid());
-        }
+        $hostSlug = strtolower((string) preg_replace('/[^a-zA-Z0-9]+/', '-', (string) gethostname()));
+        $hostSlug = trim($hostSlug, '-') ?: 'host';
+
+        Config::set($key, $base.'-sub-'.$hostSlug.'-'.getmypid());
     }
 
     private function routeMessage(string $topic, string $message): void
