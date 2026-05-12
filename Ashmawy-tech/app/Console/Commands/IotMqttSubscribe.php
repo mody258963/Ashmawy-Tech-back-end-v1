@@ -117,8 +117,8 @@ class IotMqttSubscribe extends Command
             $base = 'laravel-iot-backend';
         }
 
-        if (! str_ends_with($base, '-'.getmypid())) {
-            Config::set($key, $base.'-'.getmypid());
+        if (! str_ends_with($base, '-sub-'.getmypid())) {
+            Config::set($key, $base.'-sub-'.getmypid());
         }
     }
 
