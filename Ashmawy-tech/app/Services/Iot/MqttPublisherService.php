@@ -5,6 +5,7 @@ namespace App\Services\Iot;
 use App\Models\Iot\IotComponent;
 use App\Models\Iot\IotDevice;
 use App\Support\Iot\IotTopic;
+use App\Support\Iot\MqttClientId;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Str;
 use PhpMqtt\Client\ConnectionManager;
@@ -38,8 +39,7 @@ class MqttPublisherService
          * reuse a client built with a stale client_id, then assign a unique id (hostname + pid + entropy).
          */
         $clientIdKey = 'mqtt-client.connections.'.self::CONNECTION.'.client_id';
-        $base = (string) config($clientIdKey, 'laravel-iot-backend');
-        $base = (string) preg_replace('/-(pub|sub)-.*$/', '', $base) ?: 'laravel-iot-backend';
+        $base = MqttClientId::logicalBase((string) config($clientIdKey, 'laravel-iot-backend'));
 
         try {
             $this->mqtt->disconnect(self::CONNECTION);
@@ -47,11 +47,9 @@ class MqttPublisherService
             // No pooled connection yet.
         }
 
-        $hostSlug = strtolower((string) preg_replace('/[^a-zA-Z0-9]+/', '-', (string) gethostname()));
-        $hostSlug = trim($hostSlug, '-') ?: 'host';
         Config::set(
             $clientIdKey,
-            $base.'-pub-'.$hostSlug.'-'.getmypid().'-'.Str::lower(Str::random(8)),
+            $base.'-pub-'.MqttClientId::hostSlug().'-'.getmypid().'-'.Str::lower(Str::random(8)),
         );
 
         try {

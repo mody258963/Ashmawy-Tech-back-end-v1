@@ -56,10 +56,11 @@ return [
                 ],
 
                 'connect_timeout' => env('MQTT_CONNECT_TIMEOUT', 60),
-                'socket_timeout' => env('MQTT_SOCKET_TIMEOUT', 5),
+                'socket_timeout' => env('MQTT_SOCKET_TIMEOUT', 15),
                 'resend_timeout' => env('MQTT_RESEND_TIMEOUT', 10),
 
-                'keep_alive_interval' => env('MQTT_KEEP_ALIVE_INTERVAL', 10),
+                // Longer default avoids EMQX killing the session when loopOnce() is delayed by PHP / jobs.
+                'keep_alive_interval' => env('MQTT_KEEP_ALIVE_INTERVAL', 60),
 
                 // Library-level auto-reconnect can hammer EMQX with a stale client_id when ConnectionManager
                 // pools connections; the IoT subscriber uses explicit disconnect + sleep + reconnect instead.

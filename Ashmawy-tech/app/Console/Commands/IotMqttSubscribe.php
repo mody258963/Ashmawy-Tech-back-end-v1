@@ -7,6 +7,7 @@ use App\Jobs\Iot\ProcessComponentStatusJob;
 use App\Jobs\Iot\ProcessDeviceStatusJob;
 use App\Jobs\Iot\ProcessSensorDataJob;
 use App\Services\Iot\IotSubscriberLease;
+use App\Support\Iot\MqttClientId;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
@@ -112,15 +113,9 @@ class IotMqttSubscribe extends Command
     private function ensureUniqueSubscriberClientId(string $connection): void
     {
         $key = 'mqtt-client.connections.'.$connection.'.client_id';
-        $base = (string) env('MQTT_CLIENT_ID', 'laravel-iot-backend');
-        if ($base === '') {
-            $base = 'laravel-iot-backend';
-        }
+        $base = MqttClientId::logicalBase((string) config($key, 'laravel-iot-backend'));
 
-        $hostSlug = strtolower((string) preg_replace('/[^a-zA-Z0-9]+/', '-', (string) gethostname()));
-        $hostSlug = trim($hostSlug, '-') ?: 'host';
-
-        Config::set($key, $base.'-sub-'.$hostSlug.'-'.getmypid());
+        Config::set($key, $base.'-sub-'.MqttClientId::hostSlug().'-'.getmypid());
     }
 
     private function routeMessage(string $topic, string $message): void
