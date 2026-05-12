@@ -37,4 +37,13 @@ class IotDeviceEloquent implements IotDeviceRepository
             ->where('iot_user_id', $iotUserId)
             ->first();
     }
+
+    public function iotUserIdForDeviceUuid(string $deviceUuid): ?int
+    {
+        $id = $this->model->newQuery()
+            ->where('device_uuid', $deviceUuid)
+            ->value('iot_user_id');
+
+        return $id === null ? null : (int) $id;
+    }
 }

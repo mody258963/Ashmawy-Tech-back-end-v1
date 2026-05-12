@@ -11,6 +11,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 class ProcessComponentSetJob implements ShouldQueue
 {
@@ -33,6 +34,19 @@ class ProcessComponentSetJob implements ShouldQueue
     ): void {
         $device = $devices->findByUuidForUser($this->deviceUuid, $this->iotUserId);
         if ($device === null) {
+            $ownerId = $devices->iotUserIdForDeviceUuid($this->deviceUuid);
+            Log::warning('IoT component set skipped: no device for topic user/uuid', [
+                'iot_user_id' => $this->iotUserId,
+                'device_uuid' => $this->deviceUuid,
+                'channel' => $this->channel,
+                'device_uuid_registered_under_iot_user_id' => $ownerId,
+                'hint' => $ownerId === null
+                    ? 'No iot_devices row has this device_uuid.'
+                    : ($ownerId !== $this->iotUserId
+                        ? 'Set ESP IOT_USER_ID to '.$ownerId.'.'
+                        : ''),
+            ]);
+
             return;
         }
 

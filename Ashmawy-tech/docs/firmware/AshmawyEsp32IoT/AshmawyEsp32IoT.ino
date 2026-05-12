@@ -35,7 +35,7 @@ static const char *MQTT_USERNAME = "iot";
 static const char *MQTT_PASSWORD = "password1234";
 
 static const char *IOT_USER_ID = "2";
-static const char *DEVICE_UUID = "20e1196d-a31e-43ef-b092-2a21851ffa2a0";
+static const char *DEVICE_UUID = "20e1196d-a31e-43ef-b092-2a21851ffa2a";
 static const char *MQTT_CLIENT_ID = "dev-dgkZnvru0";
 
 static const int CH_LOCK = 1;

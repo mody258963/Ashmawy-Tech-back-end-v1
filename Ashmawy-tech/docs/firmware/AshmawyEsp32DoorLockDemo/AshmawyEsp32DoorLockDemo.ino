@@ -11,11 +11,16 @@
  *   - ESP: publishes QoS 1 to     .../component/{channel}/status  (ack + current state → Redis)
  *
  * Create in DB: one component on the device with channel = DOOR_COMPONENT_CHANNEL (default 1).
+ *
+ * Uses onMessageAdvanced + deserializeJson(buf, len) so inbound JSON is not dependent on
+ * null-terminated payload quirks. Keeps the subscribe topic in a stable buffer (not a
+ * temporary String::c_str()). After subscribe, spins mqtt.loop() briefly for SUBACK/PUBLISH.
  */
 
 #include <WiFi.h>
 #include <MQTT.h>
 #include <ArduinoJson.h>
+#include <cstring>
 
 static const char *WIFI_SSID = "YOUR_WIFI_SSID";
 static const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
@@ -23,11 +28,13 @@ static const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 static const char *MQTT_HOST = "72.61.106.84";
 static const uint16_t MQTT_PORT = 1883;
 
-static const char *MQTT_USERNAME = "iot";
+static const char *MQTT_USERNAME = "back-end";
 static const char *MQTT_PASSWORD = "password1234";
 
+/** Copy from GET /api/v1/iot/devices/{id} → numeric `iot_users.id` (not repair-shop user id). */
 static const char *IOT_USER_ID = "2";
-static const char *DEVICE_UUID = "20e1196d-a31e-43ef-b092-2a21851ffa2a0";
+/** Copy exact `device_uuid` from the same API response (36 chars; must match DB or Laravel publishes elsewhere). */
+static const char *DEVICE_UUID = "20e1196d-a31e-43ef-b092-2a21851ffa2a";
 static const char *MQTT_CLIENT_ID = "dev-dgkZnvru0";
 
 
@@ -35,6 +42,9 @@ static const char *MQTT_CLIENT_ID = "dev-dgkZnvru0";
 static const int DOOR_COMPONENT_CHANNEL = 1;
 
 static const unsigned long MQTT_FLUSH_MS = 120;
+
+/** Stable buffer for exact subscribe topic (avoid temporary String + c_str()). */
+static char gSetTopicBuf[160];
 
 WiFiClient net;
 MQTTClient mqtt(16384);
@@ -94,9 +104,16 @@ void publishDoorStatus(const char *state, const char *messageId) {
   }
 }
 
-void handleCommand(const String &payload) {
+void handleCommand(const char *bytes, int length) {
   StaticJsonDocument<384> doc;
-  if (deserializeJson(doc, payload)) {
+  DeserializationError err = deserializeJson(doc, bytes, (size_t)length);
+  if (err) {
+    Serial.printf("[RX] JSON parse error: %s (len=%d)\n", err.c_str(), length);
+    return;
+  }
+
+  if (!doc.containsKey("action")) {
+    Serial.println("[RX] missing action key");
     return;
   }
 
@@ -127,28 +144,50 @@ void handleCommand(const String &payload) {
   if (action == "SET") {
     publishDoorStatus(doorLocked ? "LOCKED" : "UNLOCKED", midc);
     Serial.println("[APP] SET (state echo)");
+    return;
   }
+
+  Serial.printf("[RX] unknown action: %s\n", action.c_str());
 }
 
-void onMessage(String &topic, String &payload) {
-  if (!topic.endsWith("/set")) {
+/**
+ * Advanced handler: topic/payload are raw; avoids String-only callback edge cases on some cores.
+ */
+void onMessageAdvanced(MQTTClient * /*client*/, char topic[], char bytes[], int length) {
+  Serial.printf("[RX] topic=%s bytes=%d\n", topic, length);
+
+  const char *setSuffix = strstr(topic, "/set");
+  if (setSuffix == nullptr || strcmp(setSuffix, "/set") != 0) {
     return;
   }
-  int p = topic.indexOf("/component/");
-  if (p < 0) {
+
+  const char *comp = strstr(topic, "/component/");
+  if (comp == nullptr) {
     return;
   }
-  int a = p + 11;
-  int b = topic.indexOf("/", a);
-  if (b < 0) {
+  comp += 11;
+  const char *slash = strchr(comp, '/');
+  if (slash == nullptr) {
     return;
   }
-  int ch = topic.substring(a, b).toInt();
+  int ch = 0;
+  for (const char *p = comp; p < slash; p++) {
+    if (*p < '0' || *p > '9') {
+      return;
+    }
+    ch = ch * 10 + (*p - '0');
+  }
   if (ch != DOOR_COMPONENT_CHANNEL) {
+    Serial.printf("[RX] channel %d != DOOR_COMPONENT_CHANNEL %d\n", ch, DOOR_COMPONENT_CHANNEL);
     return;
   }
-  Serial.printf("[RX] set ch=%d payload=%s\n", ch, payload.c_str());
-  handleCommand(payload);
+
+  if (bytes == nullptr || length <= 0) {
+    Serial.println("[RX] empty payload");
+    return;
+  }
+
+  handleCommand(bytes, length);
 }
 
 void connectWifi() {
@@ -170,7 +209,9 @@ void connectMqtt() {
     return;
   }
   mqtt.begin(MQTT_HOST, MQTT_PORT, net);
-  mqtt.onMessage(onMessage);
+  mqtt.setKeepAlive(60);
+  mqtt.setTimeout(5000);
+  mqtt.onMessageAdvanced(onMessageAdvanced);
 
   unsigned long t0 = millis();
   while (!mqtt.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD) && millis() - t0 < 15000) {
@@ -178,11 +219,32 @@ void connectMqtt() {
   }
   mqttOk = mqtt.connected();
   if (!mqttOk) {
+    Serial.printf("[MQTT] connect failed lastError=%d returnCode=%d\n",
+                  (int)mqtt.lastError(), (int)mqtt.returnCode());
     return;
   }
 
-  mqtt.subscribe(topicSet(DOOR_COMPONENT_CHANNEL).c_str(), 1);
-  Serial.printf("[MQTT] subscribed QoS1 %s\n", topicSet(DOOR_COMPONENT_CHANNEL).c_str());
+  const String setTopic = topicSet(DOOR_COMPONENT_CHANNEL);
+  if (setTopic.length() + 1 > sizeof(gSetTopicBuf)) {
+    Serial.println("[MQTT] set topic too long for gSetTopicBuf");
+    mqttOk = false;
+    return;
+  }
+  strncpy(gSetTopicBuf, setTopic.c_str(), sizeof(gSetTopicBuf) - 1);
+  gSetTopicBuf[sizeof(gSetTopicBuf) - 1] = '\0';
+
+  if (!mqtt.subscribe(gSetTopicBuf, 1)) {
+    Serial.printf("[MQTT] subscribe failed lastError=%d\n", (int)mqtt.lastError());
+    mqttOk = false;
+    return;
+  }
+  Serial.printf("[MQTT] subscribed QoS1 %s\n", gSetTopicBuf);
+
+  // Process SUBACK and any queued inbound packets before first publishes.
+  for (int i = 0; i < 80; i++) {
+    mqtt.loop();
+    delay(5);
+  }
 
   StaticJsonDocument<192> online;
   online["status"] = "online";

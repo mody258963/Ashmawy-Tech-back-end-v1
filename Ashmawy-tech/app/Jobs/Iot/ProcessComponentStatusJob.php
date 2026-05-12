@@ -39,10 +39,17 @@ class ProcessComponentStatusJob implements ShouldQueue
     ): void {
         $device = $devices->findByUuidForUser($this->deviceUuid, $this->iotUserId);
         if ($device === null) {
+            $ownerId = $devices->iotUserIdForDeviceUuid($this->deviceUuid);
             Log::warning('IoT component status skipped: no device for topic user/uuid', [
                 'iot_user_id' => $this->iotUserId,
                 'device_uuid' => $this->deviceUuid,
                 'channel' => $this->channel,
+                'device_uuid_registered_under_iot_user_id' => $ownerId,
+                'hint' => $ownerId === null
+                    ? 'No iot_devices row has this device_uuid; fix ESP topic or create the device.'
+                    : ($ownerId !== $this->iotUserId
+                        ? 'Topic uses wrong iot_user_id: set ESP IOT_USER_ID to '.$ownerId.'.'
+                        : ''),
             ]);
 
             return;
