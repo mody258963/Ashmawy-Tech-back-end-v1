@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "e8f3b2a1-4c5d-4e6f-9a0b-1c2d3e4f5a6b",
 		"name": "Ashmawy Tech — IoT Flutter API",
-		"description": "Tests **Passport `iot-api`** routes under `{{base_url}}/v1/iot/*`.\n\n1. Set **`base_url`** (e.g. `https://tppower.shop/api`).\n2. Set **`iot_device_id`** / **`iot_component_id`** after listing devices/components.\n3. Run **IoT — Login** first; it saves **`iot_access_token`** on success.\n4. Other IoT requests use `Authorization: Bearer {{iot_access_token}}`.\n\nWorker/main app uses **`POST {{base_url}}/v1/auth/login`** (different guard); not included here.",
+		"description": "Tests **Passport `iot-api`** routes under `{{base_url}}/v1/iot/*`.\n\n1. Set **`base_url`** (e.g. `https://tppower.shop/api`).\n2. Set **`iot_device_id`** / **`iot_component_id`** after listing devices/components (or run **Create component** to set `iot_component_id`).\n3. Run **IoT — Login** first; it saves **`iot_access_token`** on success.\n4. Other IoT requests use `Authorization: Bearer {{iot_access_token}}`.\n\nWorker/main app uses **`POST {{base_url}}/v1/auth/login`** (different guard); not included here.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
@@ -133,6 +133,40 @@
 						"method": "GET",
 						"header": [{ "key": "Accept", "value": "application/json" }],
 						"url": "{{base_url}}/v1/iot/devices/{{iot_device_id}}/components"
+					}
+				},
+				{
+					"name": "Create component (door lock ch.1)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"try {",
+									"    var j = pm.response.json();",
+									"    if (j.data && j.data.id) { pm.collectionVariables.set('iot_component_id', String(j.data.id)); }",
+									"} catch (e) {}"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{iot_access_token}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [
+							{ "key": "Accept", "value": "application/json" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Front door lock\",\n  \"type\": \"lock\",\n  \"channel\": 1,\n  \"metadata\": null\n}"
+						},
+						"url": "{{base_url}}/v1/iot/devices/{{iot_device_id}}/components",
+						"description": "Creates `iot_components` row. **`channel`** is what ESP MQTT uses in `.../component/{channel}/set`. **`id`** in response is `{{iot_component_id}}` for the action URL (saved by Tests script)."
 					}
 				},
 				{

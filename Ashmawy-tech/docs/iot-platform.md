@@ -98,6 +98,7 @@ Base URL: `{APP_URL}/api/v1/iot`
 | GET | `/devices/{id}` | Bearer |
 | POST | `/devices/{id}/jwt/regenerate` | Bearer |
 | GET | `/devices/{id}/components` | Bearer |
+| POST | `/devices/{id}/components` | Bearer, body: `name`, `type` (enum), `channel` (1–255, unique per device), optional `metadata` — creates component; use returned `id` in `/action` |
 | POST | `/devices/{id}/components/{component}/action` | Bearer, body: `action` (`ON`,`OFF`,`TOGGLE`,`SET`), optional `value` object |
 | GET | `/devices/{id}/sensors` | Bearer (paginated) |
 | GET | `/devices/{id}/latest` | Bearer (latest row per sensor `type`) |

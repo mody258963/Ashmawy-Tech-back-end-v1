@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Iot;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Iot\IotComponentActionRequest;
+use App\Http\Requests\Api\V1\Iot\IotComponentStoreRequest;
 use App\Http\Resources\Iot\IotComponentResource;
 use App\Repository\Iot\IotComponentRepository;
 use App\Repository\Iot\IotDeviceRepository;
@@ -27,6 +28,15 @@ class ComponentController extends Controller
         $list = $this->components->forDevice($model);
 
         return IotComponentResource::collection($list);
+    }
+
+    public function store(IotComponentStoreRequest $request, int $device): JsonResponse
+    {
+        $user = $request->user('iot-api');
+        $model = $this->devices->findOwnedOrFail($device, $user);
+        $comp = $this->components->createForDevice($model, $request->validated());
+
+        return IotComponentResource::make($comp)->response()->setStatusCode(201);
     }
 
     public function action(IotComponentActionRequest $request, int $device, int $component): JsonResponse

@@ -28,4 +28,15 @@ class IotComponentEloquent implements IotComponentRepository
             ->whereKey($componentId)
             ->firstOrFail();
     }
+
+    public function createForDevice(IotDevice $device, array $data): IotComponent
+    {
+        return $this->model->newQuery()->create([
+            'iot_device_id' => $device->id,
+            'name' => $data['name'],
+            'type' => $data['type'],
+            'channel' => $data['channel'],
+            'metadata' => $data['metadata'] ?? null,
+        ]);
+    }
 }

@@ -29,6 +29,7 @@ Route::prefix('v1')->group(function () {
             Route::post('devices/{device}/jwt/regenerate', [IotDeviceController::class, 'regenerateJwt']);
 
             Route::get('devices/{device}/components', [IotComponentController::class, 'index']);
+            Route::post('devices/{device}/components', [IotComponentController::class, 'store']);
             Route::post('devices/{device}/components/{component}/action', [IotComponentController::class, 'action']);
 
             Route::get('devices/{device}/sensors', [IotSensorController::class, 'index']);

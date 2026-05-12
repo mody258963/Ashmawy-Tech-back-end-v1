@@ -14,4 +14,9 @@ interface IotComponentRepository
     public function forDevice(IotDevice $device): Collection;
 
     public function findOnDeviceOrFail(int $componentId, IotDevice $device): IotComponent;
+
+    /**
+     * @param  array{name: string, type: string, channel: int, metadata?: array|null}  $data
+     */
+    public function createForDevice(IotDevice $device, array $data): IotComponent;
 }
