@@ -22,6 +22,8 @@ class IotDeviceAction extends Model
         'triggered_by',
         'triggered_by_id',
         'message_id',
+        'ack_outcome',
+        'ack_payload',
         'created_at',
     ];
 
@@ -32,6 +34,7 @@ class IotDeviceAction extends Model
     {
         return [
             'value' => 'array',
+            'ack_payload' => 'array',
             'created_at' => 'datetime',
         ];
     }

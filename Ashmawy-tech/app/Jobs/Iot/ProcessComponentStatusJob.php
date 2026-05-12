@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Iot;
 
+use App\Models\Iot\IotComponent;
 use App\Repository\Iot\IotDeviceRepository;
 use App\Services\Iot\AutomationEngineStub;
 use App\Services\Iot\IotMessageIdempotency;
@@ -66,6 +67,16 @@ class ProcessComponentStatusJob implements ShouldQueue
             $realtime->putModuleStatus((int) $device->id, $this->channel, $payload, $this->messageId);
         } catch (Throwable $e) {
             Log::error('IoT Redis module status write failed: '.$e->getMessage());
+        }
+
+        if (is_array($payload) && filter_var($payload['command_ack'] ?? false, FILTER_VALIDATE_BOOL)) {
+            IotComponent::query()
+                ->where('iot_device_id', $device->id)
+                ->where('channel', $this->channel)
+                ->update([
+                    'last_state' => $payload,
+                    'last_state_at' => now(),
+                ]);
         }
 
         $automation->onDeviceEvent($device->id, 'component_status', $payload);

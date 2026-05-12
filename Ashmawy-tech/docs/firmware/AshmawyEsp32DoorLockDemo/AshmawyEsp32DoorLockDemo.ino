@@ -1,19 +1,19 @@
 /**
- * Door lock demo — ESP32 (Arduino IDE), no GPIO (simulated latch)
+ * Door lock / relay demo — ESP32 (Arduino IDE)
  *
  * Libraries: "MQTT" (256dpi), "ArduinoJson" v6
  *
+ * Hardware (typical 1-ch relay module, jumper on H = high-level trigger):
+ *   - Relay IN  -> RELAY_IN_PIN (GPIO)
+ *   - Relay DC+ -> 5V, DC- -> GND (common with ESP)
+ *   - LED test load: 5V -> resistor -> LED+ -> LED- -> COM; NO -> GND
+ *   Postman ON  -> locked=true  -> relay energized -> LED on (if RELAY_ACTIVE_HIGH true)
+ *   Postman OFF -> locked=false -> relay off       -> LED off
+ *
  * Contract (matches Ashmawy backend):
  *   - App: POST /api/v1/iot/devices/{id}/components/{component_id}/action
- *         body: { "action": "OFF" }  → unlock / open door (QoS 1 publish from Laravel)
- *         body: { "action": "ON" }   → lock door
  *   - ESP: subscribes QoS 1 to  iot/{iot_user_id}/{device_uuid}/component/{channel}/set
- *   - ESP: publishes QoS 1 to     .../component/{channel}/status
- *
- * Status payload after a command MUST echo Laravel's `message_id` so the API can wait on Redis.
- * Extra fields for verification: `command_ack`, `applied_action`, `expected_locked` (matches latch).
- *
- * Replace `simulateLockActuator()` with real GPIO + feedback before trusting `doorLocked`.
+ *   - ESP: publishes QoS 1 to     .../component/{channel}/status (echo message_id for API)
  */
 
 #include <WiFi.h>
@@ -21,8 +21,8 @@
 #include <ArduinoJson.h>
 #include <cstring>
 
-static const char *WIFI_SSID = "YOUR_WIFI_SSID";
-static const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+static const char *WIFI_SSID = "CirkitWifi";
+static const char *WIFI_PASSWORD = "";
 
 static const char *MQTT_HOST = "72.61.106.84";
 static const uint16_t MQTT_PORT = 1883;
@@ -36,11 +36,20 @@ static const char *IOT_USER_ID = "1";
 static const char *DEVICE_UUID = "20e1196d-a31e-43ef-b092-2a21851ffa2a";
 static const char *MQTT_CLIENT_ID = "dev-dgkZnvru0";
 
-/** Must match iot_components.channel for your door lock row. */
+/** Must match iot_components.channel for this component. */
 static const int DOOR_COMPONENT_CHANNEL = 1;
 
+/** GPIO connected to relay module IN (change to match your wiring). */
+static const int RELAY_IN_PIN = 4;
+
+/**
+ * true: wantLocked HIGH energizes relay (common "H" jumper boards).
+ * false: invert (use with low-level trigger / L jumper).
+ */
+static const bool RELAY_ACTIVE_HIGH = true;
+
 static const unsigned long MQTT_FLUSH_MS = 120;
-/** Fake actuator settle time (ms). Replace with GPIO timing / sensor poll in production. */
+/** Small delay after driving the relay (ms). */
 static const unsigned long ACTUATOR_SETTLE_MS = 80;
 
 /** Stable buffer for exact subscribe topic (avoid temporary String::c_str()). */
@@ -53,8 +62,8 @@ bool wifiOk = false;
 bool mqttOk = false;
 unsigned long lastMqttTry = 0;
 
-/** Simulated latch: true = locked (bolt engaged), false = unlocked (door can open). */
-bool doorLocked = true;
+/** Logical "locked" state; drives relay when actuator runs. Start false = relay relaxed at boot. */
+bool doorLocked = false;
 
 String topicBase() {
   return String("iot/") + IOT_USER_ID + "/" + DEVICE_UUID;
@@ -89,11 +98,11 @@ bool publishQos1(const char *topic, JsonDocument &doc) {
 }
 
 /**
- * Apply physical/simulated lock hardware. Return false if actuator fails (then do not ACK command).
- * Demo: always succeeds after a short settle delay.
+ * Drive relay IN pin. Return false only if you add real fault detection later.
  */
 bool simulateLockActuator(bool wantLocked) {
-  (void)wantLocked;
+  const bool pinHigh = RELAY_ACTIVE_HIGH ? wantLocked : !wantLocked;
+  digitalWrite(RELAY_IN_PIN, pinHigh ? HIGH : LOW);
   delay(ACTUATOR_SETTLE_MS);
   return true;
 }
@@ -302,7 +311,7 @@ void connectMqtt() {
 
   StaticJsonDocument<192> online;
   online["status"] = "online";
-  online["fw"] = "door-lock-demo";
+  online["fw"] = "door-lock-relay-gpio";
   String devStatusTopic = topicBase() + "/device/status";
   publishQos1(devStatusTopic.c_str(), online);
 
@@ -312,6 +321,11 @@ void connectMqtt() {
 void setup() {
   Serial.begin(115200);
   delay(400);
+  pinMode(RELAY_IN_PIN, OUTPUT);
+  {
+    const bool pinHigh = RELAY_ACTIVE_HIGH ? doorLocked : !doorLocked;
+    digitalWrite(RELAY_IN_PIN, pinHigh ? HIGH : LOW);
+  }
   connectWifi();
   if (wifiOk) {
     connectMqtt();

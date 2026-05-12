@@ -66,6 +66,10 @@ Laravel publishes JSON to the `.../component/{channel}/set` topic:
 
 Implementation: `App\Services\Iot\MqttPublisherService` (uses `PhpMqtt\Client\ConnectionManager` with **QoS 1**).
 
+User-initiated actions (`POST .../components/{id}/action`) create an `iot_device_actions` row with `ack_outcome` starting as **`pending`**, then **`acknowledged`**, **`nack`**, **`timeout`**, or **`no_wait`** after the server waits for the device status echo (see `ComponentControlService`). The API JSON includes **`ack_outcome`**. **`iot_components.last_state`** is updated from **`.../component/{channel}/status`** only when the payload has **`command_ack: true`** (device-confirmed), not from inbound `set` alone.
+
+**HTTP status (Flutter / mobile):** when **`wait_for_ack` is true** (default) and **`wait_ack_timeout_ms` &gt; 0**, the action endpoint returns **`200`** only if **`device_applied_command`** is true (ESP32 echoed **`command_ack: true`**). If the device explicitly rejects the command, the response is **`422`** with **`message`: `device_rejected_command`**. If no matching status arrives in time, the response is **`504`** with **`message`: `device_ack_timeout`**. That way clients that only update a switch when `response.ok` do not flip the button when the device never confirmed. With **`wait_for_ack`: false** (fire-and-forget), the response stays **`200`**; the app must refresh from **`GET .../status`** or **`statuses`** when the device publishes, not assume the toggle changed.
+
 ## Device JWT (EMQX)
 
 `App\Services\Iot\DeviceJwtService` issues **HS256** JWTs signed with `IOT_JWT_SECRET`. Claims include:
@@ -127,6 +131,8 @@ Use `Authorization: Bearer $token` on subsequent calls.
 `App\Services\Iot\IotMessageIdempotency` uses Redis `SET key NX EX` so duplicate deliveries are ignored when Redis is available.
 
 ## ESP32 (Arduino / C++) sketch outline
+
+Multi-relay + multi-sensor example (10 channels + 5 sensor types): `docs/firmware/AshmawyEsp32HomeHubDemo/AshmawyEsp32HomeHubDemo.ino` — Arabic walkthrough: [iot-home-hub-ar.md](./iot-home-hub-ar.md). Door/relay + ACK pattern: `docs/firmware/AshmawyEsp32DoorLockDemo/AshmawyEsp32DoorLockDemo.ino`.
 
 ```cpp
 // Pseudocode: use PubSubClient or async-mqtt-client + WiFi

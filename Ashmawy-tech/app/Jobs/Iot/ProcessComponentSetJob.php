@@ -83,11 +83,6 @@ class ProcessComponentSetJob implements ShouldQueue
             'created_at' => now(),
         ]);
 
-        $component->forceFill([
-            'last_state' => is_array($decoded) ? $decoded : ['raw' => $this->rawMessage],
-            'last_state_at' => now(),
-        ])->save();
-
         $automation->onDeviceEvent($device->id, 'component_set', is_array($decoded) ? $decoded : null);
     }
 }

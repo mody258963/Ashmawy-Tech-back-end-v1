@@ -4,6 +4,7 @@ namespace App\Services\Iot;
 
 use App\Models\Iot\IotComponent;
 use App\Models\Iot\IotDevice;
+use App\Models\Iot\IotDeviceAction;
 use App\Models\Iot\IotUser;
 use Illuminate\Support\Facades\DB;
 
@@ -25,6 +26,7 @@ class ComponentControlService
      *     command_ack_failed: bool,
      *     device_status: array<string, mixed>|null,
      *     status_recorded_at: string|null,
+     *     ack_outcome: string,
      * }
      */
     public function execute(
@@ -53,8 +55,9 @@ class ComponentControlService
         $timeoutMs = $waitForAckTimeoutMs ?? (int) config('iot.mqtt_action_ack.wait_timeout_ms', 8000);
 
         $mqttMessageId = '';
+        $actionId = null;
 
-        DB::transaction(function () use ($device, $component, $action, $storedValue, $user, &$mqttMessageId): void {
+        DB::transaction(function () use ($device, $component, $action, $storedValue, $user, &$mqttMessageId, &$actionId): void {
             $actionRecord = $device->actions()->create([
                 'iot_component_id' => $component->id,
                 'action' => $action,
@@ -62,8 +65,11 @@ class ComponentControlService
                 'triggered_by' => 'user',
                 'triggered_by_id' => $user->id,
                 'message_id' => null,
+                'ack_outcome' => 'pending',
+                'ack_payload' => null,
                 'created_at' => now(),
             ]);
+            $actionId = $actionRecord->id;
 
             $mqttMessageId = $this->mqttPublisher->publishComponentCommand($device, $component, $action, $storedValue);
 
@@ -91,6 +97,20 @@ class ComponentControlService
             $deviceApplied = $ok;
         }
 
+        $ackOutcome = 'pending';
+        if ($actionId !== null) {
+            $ackOutcome = 'timeout';
+            if ($timeoutMs <= 0) {
+                $ackOutcome = 'no_wait';
+            } elseif ($ackReceived) {
+                $ackOutcome = $commandAckFailed ? 'nack' : 'acknowledged';
+            }
+            IotDeviceAction::query()->whereKey($actionId)->update([
+                'ack_outcome' => $ackOutcome,
+                'ack_payload' => is_array($payload) ? $payload : null,
+            ]);
+        }
+
         return [
             'mqtt_message_id' => $mqttMessageId,
             'ack_received' => $ackReceived,
@@ -99,6 +119,7 @@ class ComponentControlService
             'command_ack_failed' => $commandAckFailed,
             'device_status' => $payload,
             'status_recorded_at' => $ackReceived ? ($ack['recorded_at'] !== '' ? $ack['recorded_at'] : null) : null,
+            'ack_outcome' => $ackOutcome,
         ];
     }
 }

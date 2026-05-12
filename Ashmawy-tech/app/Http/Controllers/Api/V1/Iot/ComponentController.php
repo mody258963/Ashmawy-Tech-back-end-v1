@@ -112,7 +112,7 @@ class ComponentController extends Controller
             $waitMs,
         );
 
-        return response()->json([
+        $body = [
             'message' => 'ok',
             'mqtt_message_id' => $result['mqtt_message_id'],
             'ack_received' => $result['ack_received'],
@@ -121,6 +121,28 @@ class ComponentController extends Controller
             'command_ack_failed' => $result['command_ack_failed'],
             'device_status' => $result['device_status'],
             'status_recorded_at' => $result['status_recorded_at'],
-        ]);
+            'ack_outcome' => $result['ack_outcome'],
+        ];
+
+        // When the client asked to wait for the ESP32 echo, treat “no device confirmation” as HTTP
+        // failure so mobile apps that only flip UI on `response.ok` keep the toggle unchanged.
+        if ($waitMs > 0 && ! $result['device_applied_command']) {
+            if ($result['command_ack_failed']) {
+                $body['message'] = 'device_rejected_command';
+
+                return response()->json($body, 422);
+            }
+            if ($result['ack_timed_out']) {
+                $body['message'] = 'device_ack_timeout';
+
+                return response()->json($body, 504);
+            }
+
+            $body['message'] = 'device_ack_uncertain';
+
+            return response()->json($body, 504);
+        }
+
+        return response()->json($body);
     }
 }
