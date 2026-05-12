@@ -11,13 +11,30 @@ class ComponentControlService
 {
     public function __construct(
         private readonly MqttPublisherService $mqttPublisher,
+        private readonly IotRealtimeStore $realtime,
     ) {}
 
     /**
      * @param  array<string, mixed>|null  $value
+     * @param  ?int  $waitForAckTimeoutMs  null = use config `iot.mqtt_action_ack.wait_timeout_ms`; 0 = do not wait
+     * @return array{
+     *     mqtt_message_id: string,
+     *     ack_received: bool,
+     *     ack_timed_out: bool,
+     *     device_applied_command: bool,
+     *     command_ack_failed: bool,
+     *     device_status: array<string, mixed>|null,
+     *     status_recorded_at: string|null,
+     * }
      */
-    public function execute(IotUser $user, IotDevice $device, IotComponent $component, string $action, ?array $value = null): void
-    {
+    public function execute(
+        IotUser $user,
+        IotDevice $device,
+        IotComponent $component,
+        string $action,
+        ?array $value = null,
+        ?int $waitForAckTimeoutMs = null,
+    ): array {
         if ((int) $device->iot_user_id !== (int) $user->id) {
             abort(403, 'Device does not belong to this account.');
         }
@@ -33,8 +50,12 @@ class ComponentControlService
 
         $storedValue = $value === null ? null : (is_array($value) ? $value : ['v' => $value]);
 
-        DB::transaction(function () use ($device, $component, $action, $storedValue, $user): void {
-            $device->actions()->create([
+        $timeoutMs = $waitForAckTimeoutMs ?? (int) config('iot.mqtt_action_ack.wait_timeout_ms', 8000);
+
+        $mqttMessageId = '';
+
+        DB::transaction(function () use ($device, $component, $action, $storedValue, $user, &$mqttMessageId): void {
+            $actionRecord = $device->actions()->create([
                 'iot_component_id' => $component->id,
                 'action' => $action,
                 'value' => $storedValue,
@@ -44,7 +65,40 @@ class ComponentControlService
                 'created_at' => now(),
             ]);
 
-            $this->mqttPublisher->publishComponentCommand($device, $component, $action, $storedValue);
+            $mqttMessageId = $this->mqttPublisher->publishComponentCommand($device, $component, $action, $storedValue);
+
+            $actionRecord->forceFill(['message_id' => $mqttMessageId])->save();
         });
+
+        $ack = null;
+        if ($timeoutMs > 0) {
+            $ack = $this->realtime->waitForModuleAckByCommandMessageId(
+                (int) $device->id,
+                (int) $component->channel,
+                $mqttMessageId,
+                $timeoutMs,
+            );
+        }
+
+        $ackReceived = $ack !== null;
+
+        $payload = $ackReceived ? $ack['payload'] : null;
+        $deviceApplied = $ackReceived;
+        $commandAckFailed = false;
+        if ($ackReceived && is_array($payload) && array_key_exists('command_ack', $payload)) {
+            $ok = filter_var($payload['command_ack'], FILTER_VALIDATE_BOOL);
+            $commandAckFailed = ! $ok;
+            $deviceApplied = $ok;
+        }
+
+        return [
+            'mqtt_message_id' => $mqttMessageId,
+            'ack_received' => $ackReceived,
+            'ack_timed_out' => $timeoutMs > 0 && ! $ackReceived,
+            'device_applied_command' => $deviceApplied,
+            'command_ack_failed' => $commandAckFailed,
+            'device_status' => $payload,
+            'status_recorded_at' => $ackReceived ? ($ack['recorded_at'] !== '' ? $ack['recorded_at'] : null) : null,
+        ];
     }
 }

@@ -5,7 +5,7 @@
  *   - "MQTT" by Joel Gaehwiler (256dpi)
  *   - "ArduinoJson" by Benoit Blanchon (v6)
  *
- * Topics: iot/{IOT_USER_ID}/{DEVICE_UUID}/...
+ * Topics: iot/{IOT_USER_ID}/{DEVICE_UUID}/... — use `iot_user_id` + `device_uuid` from GET /api/v1/iot/devices/{id}.
  *
  * Door / temperature here are software demos (no wiring). Add your own pins + digitalRead later.
  *
@@ -34,7 +34,8 @@ static const uint16_t MQTT_PORT = 1883;
 static const char *MQTT_USERNAME = "iot";
 static const char *MQTT_PASSWORD = "password1234";
 
-static const char *IOT_USER_ID = "2";
+/** First MQTT path segment: must equal `iot_user_id` from GET /api/v1/iot/devices/{id}. */
+static const char *IOT_USER_ID = "1";
 static const char *DEVICE_UUID = "20e1196d-a31e-43ef-b092-2a21851ffa2a";
 static const char *MQTT_CLIENT_ID = "dev-dgkZnvru0";
 

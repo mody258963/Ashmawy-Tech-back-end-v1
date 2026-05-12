@@ -44,4 +44,12 @@ return [
 
     'subscriber_heartbeat_ttl_seconds_default' => (int) env('IOT_SUBSCRIBER_HEARTBEAT_TTL_DEFAULT', 900),
 
+    /*
+    | POST .../components/{id}/action: poll Redis for ESP .../component/{ch}/status echoing the same
+    | message_id as the outbound MQTT command (door-lock firmware publishes it). 0 = no wait.
+    */
+    'mqtt_action_ack' => [
+        'wait_timeout_ms' => (int) env('IOT_ACTION_ACK_WAIT_MS', 8000),
+    ],
+
 ];

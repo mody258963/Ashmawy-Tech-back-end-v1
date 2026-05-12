@@ -59,7 +59,8 @@ class DeviceController extends Controller
             'value' => ['nullable', 'array'],
         ]);
 
-        $this->control->execute($user, $model, $comp, $data['action'], $data['value'] ?? null);
+        // Web UI stays fast: do not block on ESP ACK (API supports wait_for_ack).
+        $this->control->execute($user, $model, $comp, $data['action'], $data['value'] ?? null, 0);
 
         return back()->with('status', __('Command queued.'));
     }

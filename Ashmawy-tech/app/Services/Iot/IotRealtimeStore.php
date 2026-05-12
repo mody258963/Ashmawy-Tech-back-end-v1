@@ -140,4 +140,53 @@ class IotRealtimeStore
             'modules' => $this->getModuleStatuses($iotDeviceId),
         ];
     }
+
+    /**
+     * Block until Redis module snapshot for this channel contains payload.message_id === $commandMessageId
+     * (ESP echoes Laravel's UUID on .../component/{ch}/status). Returns null on timeout.
+     *
+     * @return array{payload: array<string, mixed>, recorded_at: string, redis_message_id: string}|null
+     */
+    public function waitForModuleAckByCommandMessageId(
+        int $iotDeviceId,
+        int $channel,
+        string $commandMessageId,
+        int $timeoutMs,
+        int $pollSleepMicroseconds = 100_000,
+    ): ?array {
+        if ($timeoutMs <= 0) {
+            return null;
+        }
+
+        $deadlineMs = (int) round(microtime(true) * 1000) + $timeoutMs;
+        $channelKey = (string) $channel;
+
+        while ((int) round(microtime(true) * 1000) < $deadlineMs) {
+            $modules = $this->getModuleStatuses($iotDeviceId);
+            if (! isset($modules[$channelKey])) {
+                usleep(max(1000, $pollSleepMicroseconds));
+                continue;
+            }
+
+            $row = $modules[$channelKey];
+            $payload = $row['payload'] ?? null;
+            if (! is_array($payload)) {
+                usleep(max(1000, $pollSleepMicroseconds));
+                continue;
+            }
+
+            $echo = $payload['message_id'] ?? null;
+            if ($echo !== null && (string) $echo === $commandMessageId) {
+                return [
+                    'payload' => $payload,
+                    'recorded_at' => isset($row['recorded_at']) ? (string) $row['recorded_at'] : '',
+                    'redis_message_id' => isset($row['message_id']) ? (string) $row['message_id'] : '',
+                ];
+            }
+
+            usleep(max(1000, $pollSleepMicroseconds));
+        }
+
+        return null;
+    }
 }

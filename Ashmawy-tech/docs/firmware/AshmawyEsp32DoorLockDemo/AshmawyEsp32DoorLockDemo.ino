@@ -1,5 +1,5 @@
 /**
- * Door lock demo — ESP32 (Arduino IDE), no GPIO
+ * Door lock demo — ESP32 (Arduino IDE), no GPIO (simulated latch)
  *
  * Libraries: "MQTT" (256dpi), "ArduinoJson" v6
  *
@@ -8,13 +8,12 @@
  *         body: { "action": "OFF" }  → unlock / open door (QoS 1 publish from Laravel)
  *         body: { "action": "ON" }   → lock door
  *   - ESP: subscribes QoS 1 to  iot/{iot_user_id}/{device_uuid}/component/{channel}/set
- *   - ESP: publishes QoS 1 to     .../component/{channel}/status  (ack + current state → Redis)
+ *   - ESP: publishes QoS 1 to     .../component/{channel}/status
  *
- * Create in DB: one component on the device with channel = DOOR_COMPONENT_CHANNEL (default 1).
+ * Status payload after a command MUST echo Laravel's `message_id` so the API can wait on Redis.
+ * Extra fields for verification: `command_ack`, `applied_action`, `expected_locked` (matches latch).
  *
- * Uses onMessageAdvanced + deserializeJson(buf, len) so inbound JSON is not dependent on
- * null-terminated payload quirks. Keeps the subscribe topic in a stable buffer (not a
- * temporary String::c_str()). After subscribe, spins mqtt.loop() briefly for SUBACK/PUBLISH.
+ * Replace `simulateLockActuator()` with real GPIO + feedback before trusting `doorLocked`.
  */
 
 #include <WiFi.h>
@@ -31,19 +30,20 @@ static const uint16_t MQTT_PORT = 1883;
 static const char *MQTT_USERNAME = "back-end";
 static const char *MQTT_PASSWORD = "password1234";
 
-/** Copy from GET /api/v1/iot/devices/{id} → numeric `iot_users.id` (not repair-shop user id). */
-static const char *IOT_USER_ID = "2";
-/** Copy exact `device_uuid` from the same API response (36 chars; must match DB or Laravel publishes elsewhere). */
+/** First segment of MQTT topics: must equal `iot_user_id` from GET /api/v1/iot/devices/{id}. */
+static const char *IOT_USER_ID = "1";
+/** Exact `device_uuid` from the same API response (36 chars). */
 static const char *DEVICE_UUID = "20e1196d-a31e-43ef-b092-2a21851ffa2a";
 static const char *MQTT_CLIENT_ID = "dev-dgkZnvru0";
-
 
 /** Must match iot_components.channel for your door lock row. */
 static const int DOOR_COMPONENT_CHANNEL = 1;
 
 static const unsigned long MQTT_FLUSH_MS = 120;
+/** Fake actuator settle time (ms). Replace with GPIO timing / sensor poll in production. */
+static const unsigned long ACTUATOR_SETTLE_MS = 80;
 
-/** Stable buffer for exact subscribe topic (avoid temporary String + c_str()). */
+/** Stable buffer for exact subscribe topic (avoid temporary String::c_str()). */
 static char gSetTopicBuf[160];
 
 WiFiClient net;
@@ -77,9 +77,10 @@ void mqttFlush() {
 }
 
 bool publishQos1(const char *topic, JsonDocument &doc) {
-  char buf[512];
+  char buf[640];
   size_t n = serializeJson(doc, buf, sizeof(buf));
   if (n == 0 || n >= sizeof(buf)) {
+    Serial.println("[TX] JSON too large for buf");
     return false;
   }
   bool ok = mqtt.publish(topic, buf, (int)n, false, 1);
@@ -87,21 +88,68 @@ bool publishQos1(const char *topic, JsonDocument &doc) {
   return ok;
 }
 
-void publishDoorStatus(const char *state, const char *messageId) {
-  StaticJsonDocument<384> doc;
+/**
+ * Apply physical/simulated lock hardware. Return false if actuator fails (then do not ACK command).
+ * Demo: always succeeds after a short settle delay.
+ */
+bool simulateLockActuator(bool wantLocked) {
+  (void)wantLocked;
+  delay(ACTUATOR_SETTLE_MS);
+  return true;
+}
+
+/**
+ * Publish component status to Redis via backend subscriber.
+ *
+ * @param correlationMessageId Laravel command UUID; empty on boot-only telemetry.
+ * @param appliedAction        ON/OFF/TOGGLE/SET when responding to command; nullptr otherwise.
+ * @param commandAck           true only after .../set was handled and actuator succeeded.
+ */
+void publishDoorStatus(const char *state, const char *correlationMessageId,
+                       const char *appliedAction, bool commandAck) {
+  StaticJsonDocument<512> doc;
   doc["state"] = state;
   doc["locked"] = doorLocked;
   doc["door_open"] = !doorLocked;
-  if (messageId && messageId[0]) {
-    doc["message_id"] = messageId;
+  doc["locks_engaged"] = doorLocked;
+  doc["command_ack"] = commandAck;
+  doc["uptime_ms"] = millis();
+
+  if (appliedAction != nullptr && appliedAction[0] != '\0') {
+    doc["applied_action"] = appliedAction;
   }
-  doc["ts"] = "1970-01-01T00:00:00Z";
+
+  if (strcmp(state, "LOCKED") == 0) {
+    doc["expected_locked"] = true;
+  } else if (strcmp(state, "UNLOCKED") == 0) {
+    doc["expected_locked"] = false;
+  }
+
+  if (correlationMessageId != nullptr && correlationMessageId[0] != '\0') {
+    doc["message_id"] = correlationMessageId;
+  }
+
   const String t = topicStatus(DOOR_COMPONENT_CHANNEL);
   if (publishQos1(t.c_str(), doc)) {
-    Serial.printf("[TX] status -> %s\n", t.c_str());
+    Serial.printf("[TX] status ack=%s action=%s locked=%d -> %s\n",
+                  commandAck ? "yes" : "no",
+                  appliedAction ? appliedAction : "-",
+                  doorLocked ? 1 : 0,
+                  t.c_str());
   } else {
     Serial.printf("[TX] FAIL status -> %s\n", t.c_str());
   }
+}
+
+bool applyLockCommand(const char *appliedAction, bool wantLocked, const char *midc) {
+  doorLocked = wantLocked;
+  if (!simulateLockActuator(wantLocked)) {
+    Serial.printf("[HW] actuator FAILED wanted_locked=%d\n", wantLocked ? 1 : 0);
+    publishDoorStatus(doorLocked ? "LOCKED" : "UNLOCKED", midc, appliedAction, false);
+    return false;
+  }
+  publishDoorStatus(doorLocked ? "LOCKED" : "UNLOCKED", midc, appliedAction, true);
+  return true;
 }
 
 void handleCommand(const char *bytes, int length) {
@@ -123,36 +171,43 @@ void handleCommand(const char *bytes, int length) {
   String mid = doc["message_id"].isNull() ? String("") : doc["message_id"].as<String>();
   const char *midc = mid.length() ? mid.c_str() : "";
 
+  if (midc[0] == '\0') {
+    Serial.println("[RX] warning: no message_id — Laravel API cannot correlate this ACK");
+  }
+
   if (action == "ON") {
-    doorLocked = true;
-    publishDoorStatus("LOCKED", midc);
-    Serial.println("[APP] ON -> locked");
+    if (applyLockCommand("ON", true, midc)) {
+      Serial.println("[APP] ON -> locked (ESP confirmed)");
+    }
     return;
   }
   if (action == "OFF") {
-    doorLocked = false;
-    publishDoorStatus("UNLOCKED", midc);
-    Serial.println("[APP] OFF -> unlocked (door open)");
+    if (applyLockCommand("OFF", false, midc)) {
+      Serial.println("[APP] OFF -> unlocked (ESP confirmed)");
+    }
     return;
   }
   if (action == "TOGGLE") {
-    doorLocked = !doorLocked;
-    publishDoorStatus(doorLocked ? "LOCKED" : "UNLOCKED", midc);
-    Serial.println("[APP] TOGGLE");
+    if (applyLockCommand("TOGGLE", !doorLocked, midc)) {
+      Serial.println("[APP] TOGGLE (ESP confirmed)");
+    } else {
+      Serial.println("[APP] TOGGLE actuator failed");
+    }
     return;
   }
   if (action == "SET") {
-    publishDoorStatus(doorLocked ? "LOCKED" : "UNLOCKED", midc);
-    Serial.println("[APP] SET (state echo)");
+    if (!simulateLockActuator(doorLocked)) {
+      publishDoorStatus(doorLocked ? "LOCKED" : "UNLOCKED", midc, "SET", false);
+      return;
+    }
+    publishDoorStatus(doorLocked ? "LOCKED" : "UNLOCKED", midc, "SET", true);
+    Serial.println("[APP] SET echo (ESP confirmed)");
     return;
   }
 
   Serial.printf("[RX] unknown action: %s\n", action.c_str());
 }
 
-/**
- * Advanced handler: topic/payload are raw; avoids String-only callback edge cases on some cores.
- */
 void onMessageAdvanced(MQTTClient * /*client*/, char topic[], char bytes[], int length) {
   Serial.printf("[RX] topic=%s bytes=%d\n", topic, length);
 
@@ -240,7 +295,6 @@ void connectMqtt() {
   }
   Serial.printf("[MQTT] subscribed QoS1 %s\n", gSetTopicBuf);
 
-  // Process SUBACK and any queued inbound packets before first publishes.
   for (int i = 0; i < 80; i++) {
     mqtt.loop();
     delay(5);
@@ -252,7 +306,7 @@ void connectMqtt() {
   String devStatusTopic = topicBase() + "/device/status";
   publishQos1(devStatusTopic.c_str(), online);
 
-  publishDoorStatus(doorLocked ? "LOCKED" : "UNLOCKED", "");
+  publishDoorStatus(doorLocked ? "LOCKED" : "UNLOCKED", "", nullptr, false);
 }
 
 void setup() {

@@ -45,14 +45,32 @@ class ComponentController extends Controller
         $model = $this->devices->findOwnedOrFail($device, $user);
         $comp = $this->components->findOnDeviceOrFail($component, $model);
 
-        $this->control->execute(
+        $waitForAck = $request->boolean('wait_for_ack', true);
+        $waitMs = $waitForAck
+            ? min(
+                max((int) $request->input('wait_ack_timeout_ms', (int) config('iot.mqtt_action_ack.wait_timeout_ms', 8000)), 0),
+                30000,
+            )
+            : 0;
+
+        $result = $this->control->execute(
             $user,
             $model,
             $comp,
             $request->validated('action'),
             $request->validated('value'),
+            $waitMs,
         );
 
-        return response()->json(['message' => 'ok']);
+        return response()->json([
+            'message' => 'ok',
+            'mqtt_message_id' => $result['mqtt_message_id'],
+            'ack_received' => $result['ack_received'],
+            'ack_timed_out' => $result['ack_timed_out'],
+            'device_applied_command' => $result['device_applied_command'],
+            'command_ack_failed' => $result['command_ack_failed'],
+            'device_status' => $result['device_status'],
+            'status_recorded_at' => $result['status_recorded_at'],
+        ]);
     }
 }
