@@ -9,6 +9,7 @@ use App\Http\Resources\Iot\IotComponentResource;
 use App\Repository\Iot\IotComponentRepository;
 use App\Repository\Iot\IotDeviceRepository;
 use App\Services\Iot\ComponentControlService;
+use App\Services\Iot\IotRealtimeStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -19,6 +20,7 @@ class ComponentController extends Controller
         private readonly IotDeviceRepository $devices,
         private readonly IotComponentRepository $components,
         private readonly ComponentControlService $control,
+        private readonly IotRealtimeStore $realtime,
     ) {}
 
     public function index(Request $request, int $device): AnonymousResourceCollection
@@ -37,6 +39,54 @@ class ComponentController extends Controller
         $comp = $this->components->createForDevice($model, $request->validated());
 
         return IotComponentResource::make($comp)->response()->setStatusCode(201);
+    }
+
+    /**
+     * ESP32 realtime snapshot for all components on this device (Redis only, not DB history).
+     */
+    public function statuses(Request $request, int $device): JsonResponse
+    {
+        $user = $request->user('iot-api');
+        $model = $this->devices->findOwnedOrFail($device, $user);
+        $components = $this->components->forDevice($model);
+        $modules = $this->realtime->getModuleStatuses((int) $model->id);
+
+        $items = $components->map(function ($comp) use ($modules, $request): array {
+            $channel = (string) $comp->channel;
+
+            return [
+                'component' => IotComponentResource::make($comp)->resolve($request),
+                'live_status' => $modules[$channel] ?? null,
+                'source' => 'redis_mqtt',
+            ];
+        })->values();
+
+        return response()->json([
+            'device_id' => (int) $model->id,
+            'device_uuid' => (string) $model->device_uuid,
+            'components' => $items,
+            'source' => 'redis_mqtt',
+        ]);
+    }
+
+    /**
+     * ESP32 realtime snapshot for one component (Redis only, not DB history).
+     */
+    public function status(Request $request, int $device, int $component): JsonResponse
+    {
+        $user = $request->user('iot-api');
+        $model = $this->devices->findOwnedOrFail($device, $user);
+        $comp = $this->components->findOnDeviceOrFail($component, $model);
+        $modules = $this->realtime->getModuleStatuses((int) $model->id);
+        $channel = (string) $comp->channel;
+
+        return response()->json([
+            'device_id' => (int) $model->id,
+            'device_uuid' => (string) $model->device_uuid,
+            'component' => IotComponentResource::make($comp)->resolve($request),
+            'live_status' => $modules[$channel] ?? null,
+            'source' => 'redis_mqtt',
+        ]);
     }
 
     public function action(IotComponentActionRequest $request, int $device, int $component): JsonResponse
