@@ -7,9 +7,7 @@ use App\Jobs\Iot\ProcessComponentStatusJob;
 use App\Jobs\Iot\ProcessDeviceStatusJob;
 use App\Jobs\Iot\ProcessSensorDataJob;
 use App\Services\Iot\IotSubscriberLease;
-use App\Support\Iot\MqttClientId;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use PhpMqtt\Client\ConnectionManager;
 use PhpMqtt\Client\Exceptions\DataTransferException;
@@ -24,7 +22,6 @@ class IotMqttSubscribe extends Command
     public function handle(ConnectionManager $manager): int
     {
         $connection = (string) $this->option('connection');
-        $this->ensureUniqueSubscriberClientId($connection);
 
         $qosTelemetry = MqttClient::QOS_AT_MOST_ONCE;
         $qosActions = MqttClient::QOS_AT_LEAST_ONCE;
@@ -104,18 +101,6 @@ class IotMqttSubscribe extends Command
         }
 
         return app(IotSubscriberLease::class)->active();
-    }
-
-    /**
-     * EMQX: one online session per client_id. Include hostname so two app containers with the same PID
-     * (e.g. both 28) never share one id; include PID so two processes on one host never collide.
-     */
-    private function ensureUniqueSubscriberClientId(string $connection): void
-    {
-        $key = 'mqtt-client.connections.'.$connection.'.client_id';
-        $base = MqttClientId::logicalBase((string) config($key, 'laravel-iot-backend'));
-
-        Config::set($key, $base.'-sub-'.MqttClientId::hostSlug().'-'.getmypid());
     }
 
     private function routeMessage(string $topic, string $message): void
