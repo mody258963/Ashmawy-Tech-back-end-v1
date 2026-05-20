@@ -118,12 +118,10 @@ class IotRealtimeStore
         foreach ($raw as $channel => $json) {
             try {
                 $decoded = json_decode((string) $json, true, 512, JSON_THROW_ON_ERROR);
-                Log::warning('==========================================IoT getModuleStatuses', ['decoded' => $decoded]);
                 if (is_array($decoded)) {
                     $out[(string) $channel] = $decoded;
                 }
-            } catch (Throwable $e) {
-                Log::warning('======   ==========================================IoT getModuleStatuses', ['error' => $e->getMessage()]);
+            } catch (Throwable) {
                 continue;
             }
         }
