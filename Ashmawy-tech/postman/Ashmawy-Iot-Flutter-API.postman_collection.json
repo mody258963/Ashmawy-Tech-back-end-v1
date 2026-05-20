@@ -117,6 +117,69 @@
 						"header": [{ "key": "Accept", "value": "application/json" }],
 						"url": "{{base_url}}/v1/iot/devices/{{iot_device_id}}/jwt/regenerate"
 					}
+				},
+				{
+					"name": "App heartbeat (start sensors)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{iot_access_token}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [
+							{ "key": "Accept", "value": "application/json" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"ttl_seconds\": 300,\n  \"streaming\": true\n}"
+						},
+						"url": "{{base_url}}/v1/iot/devices/{{iot_device_id}}/app/heartbeat",
+						"description": "Wakes ESP32 sensor streaming (AshmawyEsp32Hybrid). Call on device screen open; repeat every 2-3 min."
+					}
+				},
+				{
+					"name": "App heartbeat (stop sensors)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{iot_access_token}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [
+							{ "key": "Accept", "value": "application/json" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"streaming\": false\n}"
+						},
+						"url": "{{base_url}}/v1/iot/devices/{{iot_device_id}}/app/heartbeat"
+					}
+				}
+			]
+		},
+		{
+			"name": "IoT — Push tokens",
+			"item": [
+				{
+					"name": "Register FCM token",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{iot_access_token}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [
+							{ "key": "Accept", "value": "application/json" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"token\": \"fcm-device-token-here\",\n  \"platform\": \"android\"\n}"
+						},
+						"url": "{{base_url}}/v1/iot/push-tokens"
+					}
 				}
 			]
 		},

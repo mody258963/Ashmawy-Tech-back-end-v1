@@ -29,6 +29,12 @@ final class IotTopic
         return self::base($iotUserId, $deviceUuid).'/device/status';
     }
 
+    /** Mobile app wake: Laravel publishes; ESP32 enables periodic sensor publishing for ttl_seconds. */
+    public static function appHeartbeat(int $iotUserId, string $deviceUuid): string
+    {
+        return self::base($iotUserId, $deviceUuid).'/app/heartbeat';
+    }
+
     /**
      * @return array{0: int, 1: string}|null
      */

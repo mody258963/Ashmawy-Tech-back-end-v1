@@ -40,11 +40,22 @@ return [
         FILTER_VALIDATE_BOOL,
     ),
 
+    'app_session_redis_key' => env('IOT_APP_SESSION_REDIS_KEY', 'iot:app_session:device:%d'),
+
+    'app_heartbeat_ttl_default' => (int) env('IOT_APP_HEARTBEAT_TTL_DEFAULT', 300),
+
     /*
-    | Dedupe sensor MQTT by payload "seq" (per device + type). Avoids stale hash(topic|body) keys
-    | blocking Redis updates after queue retries or broker redelivery.
+    | Sensor types that may trigger FCM when app session is inactive (comma-separated in .env).
     */
-    'sensor_idempotency' => filter_var(env('IOT_SENSOR_IDEMPOTENCY', true), FILTER_VALIDATE_BOOL),
+    'critical_sensor_types' => array_values(array_filter(array_map(
+        static fn (string $s): string => trim($s),
+        explode(',', (string) env('IOT_CRITICAL_SENSOR_TYPES', 'door_status,motion'))
+    ))),
+
+    'fcm' => [
+        'project_id' => env('FCM_PROJECT_ID'),
+        'credentials_path' => env('FCM_CREDENTIALS_PATH', storage_path('app/firebase-credentials.json')),
+    ],
 
     /*
     | Demand-gated MQTT subscriber: connects only while Redis lease is refreshed (Flutter heartbeat).

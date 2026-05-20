@@ -35,6 +35,38 @@ class MqttPublisherService
             'ts' => now()->toIso8601String(),
         ];
 
+        $this->publishJson($topic, $payload);
+
+        return $messageId;
+    }
+
+    /**
+     * Tell the device (ESP32) to publish sensor telemetry for a limited time (app foreground).
+     *
+     * @return string MQTT payload message_id
+     */
+    public function publishAppHeartbeat(IotDevice $device, int $ttlSeconds, bool $streaming = true): string
+    {
+        $topic = IotTopic::appHeartbeat((int) $device->iot_user_id, (string) $device->device_uuid);
+
+        $messageId = (string) Str::uuid();
+        $payload = [
+            'streaming' => $streaming,
+            'ttl_seconds' => max(60, min(3600, $ttlSeconds)),
+            'message_id' => $messageId,
+            'ts' => now()->toIso8601String(),
+        ];
+
+        $this->publishJson($topic, $payload);
+
+        return $messageId;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function publishJson(string $topic, array $payload): void
+    {
         $clientIdKey = 'mqtt-client.connections.'.self::CONNECTION.'.client_id';
         $base = (string) config('mqtt-client.publisher_client_id_base', 'laravel-iot-backend-publisher');
         $hostSlug = strtolower((string) preg_replace('/[^a-zA-Z0-9]+/', '-', (string) gethostname()));
@@ -52,9 +84,7 @@ class MqttPublisherService
 
         try {
             $client = $this->mqtt->connection(self::CONNECTION);
-            // QoS 1 — user / API initiated actions must be delivered at least once to the device.
             $client->publish($topic, json_encode($payload), MqttClient::QOS_AT_LEAST_ONCE, false);
-            // Process broker PUBACK before disconnect (php-mqtt requirement for QoS 1).
             $client->loop(true, true, 5);
         } finally {
             try {
@@ -63,7 +93,5 @@ class MqttPublisherService
                 // Broker may already have closed the socket.
             }
         }
-
-        return $messageId;
     }
 }

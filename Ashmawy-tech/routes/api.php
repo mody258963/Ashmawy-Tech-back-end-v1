@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Iot\ComponentController as IotComponentControlle
 use App\Http\Controllers\Api\V1\Iot\DeviceController as IotDeviceController;
 use App\Http\Controllers\Api\V1\Iot\IngestionController as IotIngestionController;
 use App\Http\Controllers\Api\V1\Iot\MeController as IotMeController;
+use App\Http\Controllers\Api\V1\Iot\PushTokenController as IotPushTokenController;
 use App\Http\Controllers\Api\V1\Iot\SensorController as IotSensorController;
 use App\Http\Controllers\Api\V1\MeController;
 use App\Http\Controllers\Api\V1\OrderController;
@@ -27,6 +28,8 @@ Route::prefix('v1')->group(function () {
             Route::get('devices', [IotDeviceController::class, 'index']);
             Route::get('devices/{device}', [IotDeviceController::class, 'show']);
             Route::post('devices/{device}/jwt/regenerate', [IotDeviceController::class, 'regenerateJwt']);
+            Route::post('devices/{device}/app/heartbeat', [IotDeviceController::class, 'appHeartbeat'])
+                ->middleware('throttle:120,1');
 
             Route::get('devices/{device}/components', [IotComponentController::class, 'index']);
             Route::get('devices/{device}/components/statuses', [IotComponentController::class, 'statuses']);
@@ -40,6 +43,9 @@ Route::prefix('v1')->group(function () {
             Route::post('ingestion/heartbeat', [IotIngestionController::class, 'heartbeat'])
                 ->middleware('throttle:120,1');
             Route::get('ingestion/lease', [IotIngestionController::class, 'leaseStatus']);
+
+            Route::post('push-tokens', [IotPushTokenController::class, 'store']);
+            Route::delete('push-tokens', [IotPushTokenController::class, 'destroy']);
         });
     });
 

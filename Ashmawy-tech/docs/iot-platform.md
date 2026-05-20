@@ -17,8 +17,19 @@ Staff `users` and repair `customers` tables are **unchanged**. IoT accounts live
    (Docker `entrypoint.sh` runs this after migrations when `RUN_MIGRATIONS=true`.)
 3. Set `IOT_JWT_SECRET` (≥32 chars) and `MQTT_HOST` in `.env`.
 4. For ingestion, use **Redis** queue: `QUEUE_CONNECTION=redis`, then:
-   - `php artisan queue:work redis --queue=iot`
-   - `php artisan iot:mqtt-subscribe`
+   - `php artisan queue:work redis --queue=iot` (FCM alert jobs)
+   - `php artisan iot:mqtt-subscribe` (keep supervised 24/7)
+
+Production `.env` recommendations:
+
+```env
+IOT_SUBSCRIBER_DEMAND_GATED=false
+IOT_SENSOR_PROCESS_INLINE=true
+IOT_APP_HEARTBEAT_TTL_DEFAULT=300
+IOT_CRITICAL_SENSOR_TYPES=door_status,motion
+FCM_PROJECT_ID=your-firebase-project
+FCM_CREDENTIALS_PATH=/var/www/html/storage/app/firebase-credentials.json
+```
 
 ### Create a test `iot_user` + device (Tinker)
 
@@ -51,6 +62,7 @@ iot/{iot_user_id}/{device_uuid}/component/{channel}/set
 iot/{iot_user_id}/{device_uuid}/component/{channel}/status
 iot/{iot_user_id}/{device_uuid}/sensor/{type}
 iot/{iot_user_id}/{device_uuid}/device/status
+iot/{iot_user_id}/{device_uuid}/app/heartbeat
 ```
 
 - `iot_user_id` is the **numeric** `iot_users.id` (not the repair-shop `users.id`).
@@ -101,6 +113,9 @@ Base URL: `{APP_URL}/api/v1/iot`
 | GET | `/devices` | Bearer |
 | GET | `/devices/{id}` | Bearer |
 | POST | `/devices/{id}/jwt/regenerate` | Bearer |
+| POST | `/devices/{id}/app/heartbeat` | Bearer, body: `streaming`, optional `ttl_seconds` — wake ESP sensors + app session |
+| POST | `/push-tokens` | Bearer, body: `token`, `platform` (`android`/`ios`) |
+| DELETE | `/push-tokens` | Bearer, body: `token` |
 | GET | `/devices/{id}/components` | Bearer |
 | POST | `/devices/{id}/components` | Bearer, body: `name`, `type` (enum), `channel` (1–255, unique per device), optional `metadata` — creates component; use returned `id` in `/action` |
 | POST | `/devices/{id}/components/{component}/action` | Bearer, body: `action` (`ON`,`OFF`,`TOGGLE`,`SET`), optional `value` object |
@@ -132,7 +147,9 @@ Use `Authorization: Bearer $token` on subsequent calls.
 
 ## ESP32 (Arduino / C++) sketch outline
 
-Multi-relay + multi-sensor example (10 channels + 5 sensor types): `docs/firmware/AshmawyEsp32HomeHubDemo/AshmawyEsp32HomeHubDemo.ino` — Arabic walkthrough: [iot-home-hub-ar.md](./iot-home-hub-ar.md). Door/relay + ACK pattern: `docs/firmware/AshmawyEsp32DoorLockDemo/AshmawyEsp32DoorLockDemo.ino`.
+**Recommended production firmware:** `docs/firmware/AshmawyEsp32Hybrid/AshmawyEsp32Hybrid.ino` — on-demand sensors + always-on door commands + critical `door_status` alerts. See [firmware/ESP32_APP_HEARTBEAT.md](./firmware/ESP32_APP_HEARTBEAT.md) and [iot-mobile-app-guide.md](./iot-mobile-app-guide.md).
+
+Other sketches: `AshmawyEsp32HomeHubDemo`, `AshmawyEsp32DoorLockDemo`, `AshmawyEsp32SensorPublishMinimal` (always-on lab).
 
 ```cpp
 // Pseudocode: use PubSubClient or async-mqtt-client + WiFi
@@ -152,6 +169,6 @@ void publishSensor(const char* type, const char* jsonPayload) {
 
 Use your stack’s TLS client for production (`8883` / MQTTS).
 
-## Automation placeholder
+## Critical alerts
 
-`App\Services\Iot\AutomationEngineStub` is intentionally empty — hook schedules / alerts there later.
+`ProcessSensorDataJob` calls `IotCriticalAlertService` for types in `IOT_CRITICAL_SENSOR_TYPES` when the app session is inactive → `SendIotAlertPushJob` → `FcmNotificationService` (HTTP v1).

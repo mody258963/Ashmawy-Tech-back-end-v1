@@ -1,0 +1,104 @@
+<?php
+
+namespace App\Services\Iot;
+
+use App\Jobs\Iot\SendIotAlertPushJob;
+use App\Models\Iot\IotDevice;
+
+final class IotCriticalAlertService
+{
+    public function __construct(
+        private readonly IotAppSession $appSession,
+    ) {}
+
+    /**
+     * Queue FCM when a critical sensor changes and the app is not in foreground for this device.
+     *
+     * @param  array<string, mixed>  $value
+     * @param  array<string, mixed>|null  $previousValue
+     */
+    public function maybeNotify(IotDevice $device, string $sensorType, array $value, ?array $previousValue = null): void
+    {
+        $criticalTypes = config('iot.critical_sensor_types', []);
+        if (! in_array($sensorType, $criticalTypes, true)) {
+            return;
+        }
+
+        if ($this->appSession->active((int) $device->id)) {
+            return;
+        }
+
+        if (! $this->isAlertState($sensorType, $value)) {
+            return;
+        }
+
+        if ($previousValue !== null && $this->sameAlertState($sensorType, $value, $previousValue)) {
+            return;
+        }
+
+        $title = $device->name;
+        $body = $this->alertBody($sensorType, $value);
+
+        SendIotAlertPushJob::dispatch(
+            (int) $device->iot_user_id,
+            (int) $device->id,
+            $title,
+            $body,
+            [
+                'device_id' => (string) $device->id,
+                'sensor_type' => $sensorType,
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $value
+     */
+    private function isAlertState(string $sensorType, array $value): bool
+    {
+        if ($sensorType === 'door_status') {
+            $v = strtolower((string) ($value['v'] ?? ''));
+
+            return str_contains($v, 'open');
+        }
+
+        if ($sensorType === 'motion') {
+            return filter_var($value['v'] ?? false, FILTER_VALIDATE_BOOL);
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $value
+     * @param  array<string, mixed>  $previous
+     */
+    private function sameAlertState(string $sensorType, array $value, array $previous): bool
+    {
+        if ($sensorType === 'door_status') {
+            return strtolower((string) ($value['v'] ?? '')) === strtolower((string) ($previous['v'] ?? ''));
+        }
+
+        if ($sensorType === 'motion') {
+            return (bool) ($value['v'] ?? false) === (bool) ($previous['v'] ?? false);
+        }
+
+        return ($value['v'] ?? null) === ($previous['v'] ?? null);
+    }
+
+    /**
+     * @param  array<string, mixed>  $value
+     */
+    private function alertBody(string $sensorType, array $value): string
+    {
+        if ($sensorType === 'door_status') {
+            return 'Door: '.(string) ($value['v'] ?? 'open');
+        }
+
+        if ($sensorType === 'motion') {
+            return 'Motion detected';
+        }
+
+        return ucfirst(str_replace('_', ' ', $sensorType)).': '.json_encode($value['v'] ?? $value);
+    }
+}

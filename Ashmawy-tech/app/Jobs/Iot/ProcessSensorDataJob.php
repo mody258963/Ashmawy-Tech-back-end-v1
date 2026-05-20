@@ -5,7 +5,7 @@ namespace App\Jobs\Iot;
 use App\Models\Iot\IotSensorData;
 use App\Repository\Iot\IotDeviceRepository;
 use App\Services\Iot\AutomationEngineStub;
-use App\Services\Iot\IotMessageIdempotency;
+use App\Services\Iot\IotCriticalAlertService;
 use App\Services\Iot\IotRealtimeStore;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -31,9 +31,9 @@ class ProcessSensorDataJob implements ShouldQueue
 
     public function handle(
         IotDeviceRepository $devices,
-        IotMessageIdempotency $idempotency,
         IotRealtimeStore $realtime,
         AutomationEngineStub $automation,
+        IotCriticalAlertService $criticalAlerts,
     ): void {
         $device = $devices->findByUuidForUser($this->deviceUuid, $this->iotUserId);
         if ($device === null) {
@@ -56,26 +56,15 @@ class ProcessSensorDataJob implements ShouldQueue
         $decoded = json_decode($this->rawMessage, true);
         $value = is_array($decoded) ? $decoded : ['raw' => $this->rawMessage];
 
-        if (config('iot.sensor_idempotency', true)) {
-            $dedupeKey = $this->sensorDedupeKey((int) $device->id, $value);
-            if (! $idempotency->claim($dedupeKey)) {
-                Log::debug('IoT sensor skipped (duplicate seq)', [
-                    'device_id' => $device->id,
-                    'sensor_type' => $this->sensorType,
-                    'seq' => $value['seq'] ?? null,
-                ]);
-
-                return;
-            }
-        }
+        $previousSnapshot = $realtime->getSensorLatestAll((int) $device->id);
+        $previousValue = isset($previousSnapshot[$this->sensorType]['value'])
+            && is_array($previousSnapshot[$this->sensorType]['value'])
+            ? $previousSnapshot[$this->sensorType]['value']
+            : null;
 
         try {
             $realtime->putSensorLatest((int) $device->id, $this->sensorType, $value, $this->messageId);
-            Log::info('IoT sensor stored in Redis', [
-                'device_id' => $device->id,
-                'sensor_type' => $this->sensorType,
-                'seq' => $value['seq'] ?? null,
-            ]);
+            $criticalAlerts->maybeNotify($device, $this->sensorType, $value, $previousValue);
         } catch (Throwable $e) {
             Log::error('IoT Redis sensor write failed: '.$e->getMessage(), [
                 'device_id' => $device->id,
@@ -94,17 +83,5 @@ class ProcessSensorDataJob implements ShouldQueue
         }
 
         $automation->onSensorReading($device->id, $this->sensorType, $value);
-    }
-
-    /**
-     * Per reading seq when present; otherwise fall back to MQTT message hash.
-     */
-    private function sensorDedupeKey(int $iotDeviceId, array $value): string
-    {
-        if (array_key_exists('seq', $value)) {
-            return 'sensor:'.$iotDeviceId.':'.$this->sensorType.':'.(string) $value['seq'];
-        }
-
-        return $this->messageId;
     }
 }
