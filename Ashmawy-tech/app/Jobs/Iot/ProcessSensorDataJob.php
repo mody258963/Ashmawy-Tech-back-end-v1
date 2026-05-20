@@ -58,6 +58,7 @@ class ProcessSensorDataJob implements ShouldQueue
         }
 
         $decoded = json_decode($this->rawMessage, true);
+        Log::info('==========================================IoT json_decode::handle', ['decoded' => $decoded]);
         $value = is_array($decoded) ? $decoded : ['raw' => $this->rawMessage];
 
         try {
