@@ -32,6 +32,15 @@ return [
     ),
 
     /*
+    | Run ProcessSensorDataJob inside iot:mqtt-subscribe (recommended).
+    | If false, php artisan queue:work --queue=iot must run 24/7 or Redis never updates.
+    */
+    'sensor_process_inline' => filter_var(
+        env('IOT_SENSOR_PROCESS_INLINE', true),
+        FILTER_VALIDATE_BOOL,
+    ),
+
+    /*
     | Demand-gated MQTT subscriber: connects only while Redis lease is refreshed (Flutter heartbeat).
     | Queue worker should still run continuously — it is idle when the queue is empty.
     */

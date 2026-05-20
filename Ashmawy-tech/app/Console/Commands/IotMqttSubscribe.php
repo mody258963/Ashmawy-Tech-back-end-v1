@@ -105,7 +105,6 @@ class IotMqttSubscribe extends Command
 
     private function routeMessage(string $topic, string $message): void
     {
-        Log::info('==========================================IoT MQTT routeMessage', ['topic' => $topic, 'message' => $message]);
         $parts = explode('/', $topic);
         if (count($parts) < 5 || $parts[0] !== 'iot') {
             return;
@@ -134,8 +133,13 @@ class IotMqttSubscribe extends Command
             if ($type === '') {
                 return;
             }
-            Log::info('==========================================IoT ProcessSensorDataJob::dispatch', ['type' => $type]);
-            ProcessSensorDataJob::dispatch($iotUserId, $deviceUuid, $type, $message, $messageId);
+            $job = new ProcessSensorDataJob($iotUserId, $deviceUuid, $type, $message, $messageId);
+
+            if (config('iot.sensor_process_inline', true)) {
+                dispatch_sync($job);
+            } else {
+                ProcessSensorDataJob::dispatch($iotUserId, $deviceUuid, $type, $message, $messageId);
+            }
 
             return;
         }

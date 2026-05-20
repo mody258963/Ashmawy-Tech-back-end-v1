@@ -4,7 +4,6 @@ namespace App\Services\Iot;
 
 use Illuminate\Support\Facades\Redis;
 use Throwable;
-use Illuminate\Support\Facades\Log;
 
 /**
  * Latest telemetry / presence / module status for Flutter APIs (Redis).
@@ -55,12 +54,10 @@ class IotRealtimeStore
         foreach ($raw as $type => $json) {
             try {
                 $decoded = json_decode((string) $json, true, 512, JSON_THROW_ON_ERROR);
-                Log::warning('==========================================IoT getSensorLatestAll', ['decoded' => $decoded]);
                 if (is_array($decoded)) {
                     $out[(string) $type] = $decoded;
                 }
-            } catch (Throwable $e) {
-                Log::warning('==========================================IoT getSensorLatestAll', ['error' => $e->getMessage()]);
+            } catch (Throwable) {
                 continue;
             }
         }
@@ -91,10 +88,9 @@ class IotRealtimeStore
         }
         try {
             $decoded = json_decode((string) $json, true, 512, JSON_THROW_ON_ERROR);
-            Log::warning('==========================================IoT getDevicePresence', ['decoded' => $decoded]);
+
             return is_array($decoded) ? $decoded : null;
-        } catch (Throwable $e) {
-            Log::warning('======== ==========================================IoT getDevicePresence', ['error' => $e->getMessage()]);
+        } catch (Throwable) {
             return null;
         }
     }

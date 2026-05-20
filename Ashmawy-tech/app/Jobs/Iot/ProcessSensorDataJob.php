@@ -54,17 +54,29 @@ class ProcessSensorDataJob implements ShouldQueue
         }
 
         if (! $idempotency->claim($this->messageId)) {
+            Log::debug('IoT sensor skipped (duplicate)', [
+                'device_id' => $device->id,
+                'sensor_type' => $this->sensorType,
+            ]);
+
             return;
         }
 
         $decoded = json_decode($this->rawMessage, true);
-        Log::info('==========================================IoT json_decode::handle', ['decoded' => $decoded]);
         $value = is_array($decoded) ? $decoded : ['raw' => $this->rawMessage];
 
         try {
             $realtime->putSensorLatest((int) $device->id, $this->sensorType, $value, $this->messageId);
+            Log::info('IoT sensor stored in Redis', [
+                'device_id' => $device->id,
+                'sensor_type' => $this->sensorType,
+                'seq' => $value['seq'] ?? null,
+            ]);
         } catch (Throwable $e) {
-            Log::error('IoT Redis sensor write failed: '.$e->getMessage());
+            Log::error('IoT Redis sensor write failed: '.$e->getMessage(), [
+                'device_id' => $device->id,
+                'sensor_type' => $this->sensorType,
+            ]);
         }
 
         if (config('iot.persist_sensor_readings_to_database', false)) {
