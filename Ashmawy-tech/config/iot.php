@@ -41,6 +41,12 @@ return [
     ),
 
     /*
+    | Dedupe sensor MQTT by payload "seq" (per device + type). Avoids stale hash(topic|body) keys
+    | blocking Redis updates after queue retries or broker redelivery.
+    */
+    'sensor_idempotency' => filter_var(env('IOT_SENSOR_IDEMPOTENCY', true), FILTER_VALIDATE_BOOL),
+
+    /*
     | Demand-gated MQTT subscriber: connects only while Redis lease is refreshed (Flutter heartbeat).
     | Queue worker should still run continuously — it is idle when the queue is empty.
     */

@@ -53,17 +53,21 @@ class ProcessSensorDataJob implements ShouldQueue
             return;
         }
 
-        if (! $idempotency->claim($this->messageId)) {
-            Log::debug('IoT sensor skipped (duplicate)', [
-                'device_id' => $device->id,
-                'sensor_type' => $this->sensorType,
-            ]);
-
-            return;
-        }
-
         $decoded = json_decode($this->rawMessage, true);
         $value = is_array($decoded) ? $decoded : ['raw' => $this->rawMessage];
+
+        if (config('iot.sensor_idempotency', true)) {
+            $dedupeKey = $this->sensorDedupeKey((int) $device->id, $value);
+            if (! $idempotency->claim($dedupeKey)) {
+                Log::debug('IoT sensor skipped (duplicate seq)', [
+                    'device_id' => $device->id,
+                    'sensor_type' => $this->sensorType,
+                    'seq' => $value['seq'] ?? null,
+                ]);
+
+                return;
+            }
+        }
 
         try {
             $realtime->putSensorLatest((int) $device->id, $this->sensorType, $value, $this->messageId);
@@ -90,5 +94,17 @@ class ProcessSensorDataJob implements ShouldQueue
         }
 
         $automation->onSensorReading($device->id, $this->sensorType, $value);
+    }
+
+    /**
+     * Per reading seq when present; otherwise fall back to MQTT message hash.
+     */
+    private function sensorDedupeKey(int $iotDeviceId, array $value): string
+    {
+        if (array_key_exists('seq', $value)) {
+            return 'sensor:'.$iotDeviceId.':'.$this->sensorType.':'.(string) $value['seq'];
+        }
+
+        return $this->messageId;
     }
 }
