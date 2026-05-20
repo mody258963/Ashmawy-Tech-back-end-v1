@@ -93,7 +93,7 @@ class IotRealtimeStore
             $decoded = json_decode((string) $json, true, 512, JSON_THROW_ON_ERROR);
             Log::info('==========================================IoT getDevicePresence', ['decoded' => $decoded]);
             return is_array($decoded) ? $decoded : null;
-        } catch (Throwable) {
+        } catch (Throwable $e) {
             Log::info('==========================================IoT getDevicePresence', ['error' => $e->getMessage()]);
             return null;
         }
