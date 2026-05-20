@@ -55,12 +55,12 @@ class IotRealtimeStore
         foreach ($raw as $type => $json) {
             try {
                 $decoded = json_decode((string) $json, true, 512, JSON_THROW_ON_ERROR);
-                Log::info('==========================================IoT getSensorLatestAll', ['decoded' => $decoded]);
+                Log::warning('==========================================IoT getSensorLatestAll', ['decoded' => $decoded]);
                 if (is_array($decoded)) {
                     $out[(string) $type] = $decoded;
                 }
             } catch (Throwable $e) {
-                Log::info('==========================================IoT getSensorLatestAll', ['error' => $e->getMessage()]);
+                Log::warning('==========================================IoT getSensorLatestAll', ['error' => $e->getMessage()]);
                 continue;
             }
         }
@@ -91,10 +91,10 @@ class IotRealtimeStore
         }
         try {
             $decoded = json_decode((string) $json, true, 512, JSON_THROW_ON_ERROR);
-            Log::info('==========================================IoT getDevicePresence', ['decoded' => $decoded]);
+            Log::warning('==========================================IoT getDevicePresence', ['decoded' => $decoded]);
             return is_array($decoded) ? $decoded : null;
         } catch (Throwable $e) {
-            Log::info('==========================================IoT getDevicePresence', ['error' => $e->getMessage()]);
+            Log::warning('======== ==========================================IoT getDevicePresence', ['error' => $e->getMessage()]);
             return null;
         }
     }
@@ -122,12 +122,12 @@ class IotRealtimeStore
         foreach ($raw as $channel => $json) {
             try {
                 $decoded = json_decode((string) $json, true, 512, JSON_THROW_ON_ERROR);
-                Log::info('==========================================IoT getModuleStatuses', ['decoded' => $decoded]);
+                Log::warning('==========================================IoT getModuleStatuses', ['decoded' => $decoded]);
                 if (is_array($decoded)) {
                     $out[(string) $channel] = $decoded;
                 }
             } catch (Throwable $e) {
-                Log::info('==========================================IoT getModuleStatuses', ['error' => $e->getMessage()]);
+                Log::warning('======   ==========================================IoT getModuleStatuses', ['error' => $e->getMessage()]);
                 continue;
             }
         }
