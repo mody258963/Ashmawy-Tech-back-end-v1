@@ -27,7 +27,7 @@ services:
       - redis
       - emqx
     networks:
-      - dokploy-network
+      - ashmawytech_network
 
   mysql:
     image: mysql:8.0
@@ -40,13 +40,13 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
-      - dokploy-network
+      - ashmawytech_network
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
     networks:
-      - dokploy-network
+      - ashmawytech_network
 
   emqx:
     image: emqx/emqx:5.6
@@ -69,6 +69,6 @@ volumes:
   mysql_data:
 
 networks:
-  dokploy-network:
+  ashmawytech_network:
     external: true
-    name: dokploy-network
+    name: ashmawytech_network
