@@ -7,8 +7,6 @@
  * - Subscribes: .../app/heartbeat (QoS1), .../component/{ch}/set (QoS1)
  *
  * Libraries: MQTT (256dpi), ArduinoJson v6
- *
- * Embedded engineer guide: ../ESP32_HYBRID_EMBEDDED_GUIDE.md
  */
 
 #include <WiFi.h>

@@ -63,7 +63,7 @@ services:
       - "8883:8883"
       - "18083:18083"
     networks:
-      - dokploy-network
+      - ashmawytech_network
 
 volumes:
   mysql_data:
