@@ -31,3 +31,5 @@ ESP stays subscribed to `.../component/{channel}/set` while MQTT is connected.
 ## Firmware
 
 Use [`AshmawyEsp32Hybrid/AshmawyEsp32Hybrid.ino`](./AshmawyEsp32Hybrid/AshmawyEsp32Hybrid.ino).
+
+**Full guide for embedded engineers:** [ESP32_HYBRID_EMBEDDED_GUIDE.md](./ESP32_HYBRID_EMBEDDED_GUIDE.md)
