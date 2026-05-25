@@ -15,9 +15,11 @@ use App\Repository\FollowUp\FollowUpRepository;
 use App\Repository\Iot\Eloquent\IotComponentEloquent;
 use App\Repository\Iot\Eloquent\IotDeviceEloquent;
 use App\Repository\Iot\Eloquent\IotSensorDataEloquent;
+use App\Repository\Iot\Eloquent\IotSensorSlotEloquent;
 use App\Repository\Iot\IotComponentRepository;
 use App\Repository\Iot\IotDeviceRepository;
 use App\Repository\Iot\IotSensorDataRepository;
+use App\Repository\Iot\IotSensorSlotRepository;
 use App\Repository\Order\Eloquent\OrderEloquent;
 use App\Repository\Order\OrderRepository;
 use App\Repository\OrderNote\Eloquent\OrderNoteEloquent;
@@ -54,6 +56,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(IotDeviceRepository::class, IotDeviceEloquent::class);
         $this->app->bind(IotComponentRepository::class, IotComponentEloquent::class);
         $this->app->bind(IotSensorDataRepository::class, IotSensorDataEloquent::class);
+        $this->app->bind(IotSensorSlotRepository::class, IotSensorSlotEloquent::class);
     }
 
     public function boot(): void

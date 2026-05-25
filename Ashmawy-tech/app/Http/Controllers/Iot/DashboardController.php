@@ -18,8 +18,11 @@ class DashboardController extends Controller
         /** @var \App\Models\Iot\IotUser $user */
         $user = $request->user('iot-web');
 
+        $devices = $this->devices->paginateForUser($user, 50);
+
         return view('iot.dashboard', [
-            'devices' => $this->devices->paginateForUser($user, 12),
+            'devices' => $devices,
+            'onlineCount' => $devices->getCollection()->where('status', 'online')->count(),
         ]);
     }
 }

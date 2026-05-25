@@ -65,6 +65,16 @@ class IotRealtimeStore
         return $out;
     }
 
+    public function forgetSensorLatest(int $iotDeviceId, string $sensorType): void
+    {
+        Redis::hDel($this->sensorHashKey($iotDeviceId), $sensorType);
+    }
+
+    public function forgetModuleStatus(int $iotDeviceId, int $channel): void
+    {
+        Redis::hDel($this->moduleHashKey($iotDeviceId), (string) $channel);
+    }
+
     public function putDevicePresence(int $iotDeviceId, array $payload, string $normalizedStatus): void
     {
         $ttl = (int) config('iot.presence_ttl_seconds', 86400 * 30);

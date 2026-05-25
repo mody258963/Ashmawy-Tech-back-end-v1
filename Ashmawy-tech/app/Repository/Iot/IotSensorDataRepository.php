@@ -15,4 +15,6 @@ interface IotSensorDataRepository
      * @return Collection<int, IotSensorData>
      */
     public function latestPerType(IotDevice $device, int $limitTypes = 20): Collection;
+
+    public function deleteByType(IotDevice $device, string $type): int;
 }

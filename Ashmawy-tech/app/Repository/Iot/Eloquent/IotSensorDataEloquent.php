@@ -36,4 +36,12 @@ class IotSensorDataEloquent implements IotSensorDataRepository
             ->limit($limitTypes)
             ->get();
     }
+
+    public function deleteByType(IotDevice $device, string $type): int
+    {
+        return $this->model->newQuery()
+            ->where('iot_device_id', $device->id)
+            ->where('type', $type)
+            ->delete();
+    }
 }

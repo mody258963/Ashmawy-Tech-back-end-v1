@@ -17,6 +17,8 @@ class IotDevice extends Model
         'iot_user_id',
         'device_uuid',
         'name',
+        'location',
+        'notes',
         'status',
         'last_seen',
         'mqtt_username',
@@ -55,6 +57,11 @@ class IotDevice extends Model
     public function sensorData(): HasMany
     {
         return $this->hasMany(IotSensorData::class, 'iot_device_id');
+    }
+
+    public function sensorSlots(): HasMany
+    {
+        return $this->hasMany(IotSensorSlot::class, 'iot_device_id');
     }
 
     public function iotEvents(): HasMany

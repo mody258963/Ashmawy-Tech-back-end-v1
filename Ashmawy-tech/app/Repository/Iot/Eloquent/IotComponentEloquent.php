@@ -39,4 +39,22 @@ class IotComponentEloquent implements IotComponentRepository
             'metadata' => $data['metadata'] ?? null,
         ]);
     }
+
+    public function update(IotComponent $component, array $data): IotComponent
+    {
+        $component->fill([
+            'name' => $data['name'] ?? $component->name,
+            'type' => $data['type'] ?? $component->type,
+            'channel' => $data['channel'] ?? $component->channel,
+            'metadata' => array_key_exists('metadata', $data) ? $data['metadata'] : $component->metadata,
+        ]);
+        $component->save();
+
+        return $component;
+    }
+
+    public function delete(IotComponent $component): void
+    {
+        $component->delete();
+    }
 }

@@ -19,4 +19,11 @@ interface IotComponentRepository
      * @param  array{name: string, type: string, channel: int, metadata?: array|null}  $data
      */
     public function createForDevice(IotDevice $device, array $data): IotComponent;
+
+    /**
+     * @param  array{name?: string, type?: string, channel?: int, metadata?: array|null}  $data
+     */
+    public function update(IotComponent $component, array $data): IotComponent;
+
+    public function delete(IotComponent $component): void;
 }

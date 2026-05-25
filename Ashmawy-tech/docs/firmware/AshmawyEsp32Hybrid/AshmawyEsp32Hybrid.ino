@@ -31,6 +31,8 @@ static const int RELAY_IN_PIN = 4;
 static const bool RELAY_ACTIVE_HIGH = true;
 
 static const unsigned long SENSOR_PUBLISH_MS = 5000UL;
+/** Stop telemetry if no message on .../app/heartbeat for this long (even if ttl_seconds is larger). */
+static const unsigned long STREAM_IDLE_MS = 5UL * 60UL * 1000UL;
 static const unsigned long MQTT_FLUSH_MS = 120;
 static const unsigned long ACTUATOR_SETTLE_MS = 80;
 
@@ -39,6 +41,7 @@ static char gAppHeartbeatTopic[96] = "";
 static char gTopicPrefix[96];
 
 static unsigned long streamUntilMs = 0;
+static unsigned long lastHbReceivedMs = 0;
 static unsigned long lastPublishMs = 0;
 static unsigned long lastMqttTryMs = 0;
 
@@ -77,13 +80,35 @@ static void extendStreaming(uint32_t ttlSeconds) {
   if (ttlSeconds > 3600) {
     ttlSeconds = 3600;
   }
-  streamUntilMs = millis() + (unsigned long)ttlSeconds * 1000UL;
-  Serial.printf("[STREAM] active %lu s\n", (unsigned long)ttlSeconds);
+  unsigned long now = millis();
+  unsigned long ttlEnd = now + (unsigned long)ttlSeconds * 1000UL;
+  unsigned long idleEnd = now + STREAM_IDLE_MS;
+  streamUntilMs = (ttlEnd < idleEnd) ? ttlEnd : idleEnd;
+  Serial.printf("[STREAM] active until TTL %lu s (max idle %lu s without HB)\n",
+                (unsigned long)ttlSeconds, (unsigned long)(STREAM_IDLE_MS / 1000UL));
 }
 
 static void stopStreaming() {
   streamUntilMs = 0;
+  lastHbReceivedMs = 0;
   Serial.println("[STREAM] stopped");
+}
+
+/** Stop if TTL elapsed or no HB on .../app/heartbeat for STREAM_IDLE_MS (5 min). */
+static void checkStreamingExpiry() {
+  if (streamUntilMs == 0) {
+    return;
+  }
+  unsigned long now = millis();
+  if (now >= streamUntilMs) {
+    stopStreaming();
+    Serial.println("[STREAM] stopped (TTL / idle window expired)");
+    return;
+  }
+  if (lastHbReceivedMs != 0 && now - lastHbReceivedMs >= STREAM_IDLE_MS) {
+    stopStreaming();
+    Serial.println("[STREAM] stopped (no app/heartbeat for 5 min)");
+  }
 }
 
 static bool publishQos1(const char *topic, JsonDocument &doc) {
@@ -241,8 +266,10 @@ static void handleAppHeartbeat(const char *bytes, int length) {
   if (deserializeJson(doc, bytes, (size_t)length)) {
     return;
   }
+  lastHbReceivedMs = millis();
   bool streaming = doc["streaming"].isNull() ? true : doc["streaming"].as<bool>();
   uint32_t ttl = doc["ttl_seconds"].isNull() ? 300 : doc["ttl_seconds"].as<uint32_t>();
+  Serial.printf("[HB] streaming=%d ttl=%lu\n", streaming ? 1 : 0, (unsigned long)ttl);
   if (streaming) {
     extendStreaming(ttl);
     publishTelemetryBurst();
@@ -338,6 +365,8 @@ void loop() {
     return;
   }
   mqtt.loop();
+
+  checkStreamingExpiry();
 
   if (streamingActive() && millis() - lastPublishMs >= SENSOR_PUBLISH_MS) {
     lastPublishMs = millis();

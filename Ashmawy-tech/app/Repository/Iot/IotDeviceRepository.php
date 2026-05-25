@@ -19,4 +19,16 @@ interface IotDeviceRepository
      * Used when MQTT topic user id does not match DB (firmware wrong IOT_USER_ID).
      */
     public function iotUserIdForDeviceUuid(string $deviceUuid): ?int;
+
+    /**
+     * @param  array{name: string, location?: string|null, notes?: string|null}  $data
+     */
+    public function createForUser(IotUser $user, array $data, string $deviceUuid, string $mqttUsername): IotDevice;
+
+    /**
+     * @param  array{name?: string, location?: string|null, notes?: string|null}  $data
+     */
+    public function update(IotDevice $device, array $data): IotDevice;
+
+    public function delete(IotDevice $device): void;
 }
