@@ -2,7 +2,7 @@
 # Build context must include Dockerfile + this compose file
 # Set IOT_JWT_SECRET in Dokploy environment (same as Laravel .env)
 #
-# Memory caps (approx. 2.25 GiB total): tune per host — raise app/mysql/emqx on larger VPS.
+# Low-RAM profile for 4 GB VPS (approx. 1.9 GiB total for this stack).
 
 services:
   app:
@@ -11,13 +11,13 @@ services:
       dockerfile: Dockerfile
       target: production
     restart: unless-stopped
-    mem_limit: 1024m
-    memswap_limit: 1024m
+    mem_limit: 450m
+    memswap_limit: 450m
     ports:
       - "8000:80"
     environment:
-      APP_ENV: local
-      APP_DEBUG: "true"
+      APP_ENV: production
+      APP_DEBUG: "false"
       MQTT_HOST: emqx
       REDIS_HOST: redis
       DB_HOST: mysql
@@ -36,8 +36,13 @@ services:
   mysql:
     image: mysql:8.0
     restart: unless-stopped
-    mem_limit: 512m
-    memswap_limit: 512m
+    mem_limit: 900m
+    memswap_limit: 900m
+    command: >
+      --innodb-buffer-pool-size=512M
+      --max-connections=40
+      --tmp-table-size=32M
+      --max-heap-table-size=32M
     environment:
       MYSQL_DATABASE: user
       MYSQL_ROOT_PASSWORD: user123
@@ -51,17 +56,17 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 256m
-    command: redis-server --maxmemory 200mb --maxmemory-policy allkeys-lru
+    mem_limit: 200m
+    memswap_limit: 200m
+    command: redis-server --maxmemory 150mb --maxmemory-policy allkeys-lru
     networks:
       - ashmawytech_network
 
   emqx:
     image: emqx/emqx:5.6
     restart: unless-stopped
-    mem_limit: 512m
-    memswap_limit: 512m
+    mem_limit: 350m
+    memswap_limit: 350m
     environment:
       EMQX_AUTHENTICATION__1__MECHANISM: jwt
       EMQX_AUTHENTICATION__1__USE_JWKS: "false"
