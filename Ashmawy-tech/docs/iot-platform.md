@@ -71,7 +71,6 @@ iot/{iot_user_id}/{device_uuid}/app/heartbeat
 ## Laravel → device command (QoS 1)
 
 Laravel publishes JSON to the `.../component/{channel}/set` topic:
-
 ```json
 {"action":"ON","value":null,"message_id":"<uuid>","ts":"2026-05-04T12:00:00+00:00"}
 ```
@@ -149,7 +148,7 @@ Use `Authorization: Bearer $token` on subsequent calls.
 
 **Recommended production firmware:** `docs/firmware/AshmawyEsp32Hybrid/AshmawyEsp32Hybrid.ino` — on-demand sensors + always-on door commands + critical `door_status` alerts. See [firmware/ESP32_APP_HEARTBEAT.md](./firmware/ESP32_APP_HEARTBEAT.md) and [iot-mobile-app-guide.md](./iot-mobile-app-guide.md).
 
-Other sketches: `AshmawyEsp32HomeHubDemo`, `AshmawyEsp32DoorLockDemo`, `AshmawyEsp32SensorPublishMinimal` (always-on lab).
+Other sketches: `AshmawyEsp32HomeHubDemo`, `AshmawyEsp32DoorLockDemo`, [`AshmawyEsp32SensorPublishMinimal`](./firmware/AshmawyEsp32SensorPublishMinimal/README.md) (always-on lab — app guide in README).
 
 ```cpp
 // Pseudocode: use PubSubClient or async-mqtt-client + WiFi

@@ -3,7 +3,7 @@
 Base URL: `{APP_URL}/api/v1/iot`  
 Auth: `Authorization: Bearer <token>` from `POST /auth/login` (Passport `iot-api`).
 
-Related: [iot-platform.md](./iot-platform.md), [firmware/ESP32_APP_HEARTBEAT.md](./firmware/ESP32_APP_HEARTBEAT.md), [firmware/AshmawyEsp32Hybrid/AshmawyEsp32Hybrid.ino](./firmware/AshmawyEsp32Hybrid/AshmawyEsp32Hybrid.ino).
+Related: [iot-platform.md](./iot-platform.md), [firmware/ESP32_APP_HEARTBEAT.md](./firmware/ESP32_APP_HEARTBEAT.md), [firmware/AshmawyEsp32Hybrid/AshmawyEsp32Hybrid.ino](./firmware/AshmawyEsp32Hybrid/AshmawyEsp32Hybrid.ino), [firmware/AshmawyEsp32SensorPublishMinimal/README.md](./firmware/AshmawyEsp32SensorPublishMinimal/README.md) (always-on lab firmware — no heartbeat needed).
 
 ---
 
