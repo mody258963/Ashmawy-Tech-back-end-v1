@@ -9,6 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 class SendIotAlertPushJob implements ShouldQueue
 {
@@ -33,6 +34,15 @@ class SendIotAlertPushJob implements ShouldQueue
             ->where('iot_user_id', $this->iotUserId)
             ->pluck('token')
             ->all();
+
+        Log::info('critical_alert: job handling FCM send', [
+            'iot_user_id' => $this->iotUserId,
+            'device_id' => $this->iotDeviceId,
+            'token_count' => count($tokens),
+            'data' => $this->data,
+            'title' => $this->title,
+            'body' => $this->body,
+        ]);
 
         $fcm->sendToTokens($tokens, $this->title, $this->body, $this->data, highPriority: true);
     }

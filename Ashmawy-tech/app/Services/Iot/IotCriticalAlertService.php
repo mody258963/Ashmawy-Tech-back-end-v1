@@ -5,6 +5,7 @@ namespace App\Services\Iot;
 use App\Jobs\Iot\SendIotAlertPushJob;
 use App\Models\Iot\IotDevice;
 use App\Repository\Iot\IotSensorSlotRepository;
+use Illuminate\Support\Facades\Log;
 
 final class IotCriticalAlertService
 {
@@ -39,6 +40,15 @@ final class IotCriticalAlertService
 
         $title = $device->name;
         $body = $this->alertBody($sensorType, $value);
+
+        Log::info('critical_alert: queued for FCM push', [
+            'type' => 'critical_alert',
+            'iot_user_id' => (int) $device->iot_user_id,
+            'device_id' => (int) $device->id,
+            'device_name' => $title,
+            'sensor_type' => $sensorType,
+            'body' => $body,
+        ]);
 
         SendIotAlertPushJob::dispatch(
             (int) $device->iot_user_id,

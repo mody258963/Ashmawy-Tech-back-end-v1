@@ -19,20 +19,43 @@ final class FcmNotificationService
     public function sendToTokens(array $deviceTokens, string $title, string $body, array $data = [], bool $highPriority = false): void
     {
         $deviceTokens = array_values(array_filter(array_unique($deviceTokens)));
+        $isCriticalAlert = $this->isCriticalAlert($data);
+        $logContext = $this->criticalAlertLogContext($data, $title, $body);
+
         if ($deviceTokens === []) {
+            if ($isCriticalAlert) {
+                Log::warning('FCM critical_alert: skipped — no push tokens registered', $logContext);
+            }
+
             return;
         }
 
         $projectId = (string) config('iot.fcm.project_id', '');
         if ($projectId === '') {
-            Log::debug('FCM skipped: FCM_PROJECT_ID not set');
+            if ($isCriticalAlert) {
+                Log::warning('FCM critical_alert: skipped — FCM_PROJECT_ID not set', $logContext);
+            } else {
+                Log::debug('FCM skipped: FCM_PROJECT_ID not set');
+            }
 
             return;
         }
 
         $accessToken = $this->accessToken();
         if ($accessToken === null) {
+            if ($isCriticalAlert) {
+                Log::warning('FCM critical_alert: skipped — OAuth access token unavailable', $logContext);
+            }
+
             return;
+        }
+
+        if ($isCriticalAlert) {
+            Log::info('FCM critical_alert: sending', array_merge($logContext, [
+                'token_count' => count($deviceTokens),
+                'high_priority' => $highPriority,
+                'project_id' => $projectId,
+            ]));
         }
 
         $url = 'https://fcm.googleapis.com/v1/projects/'.$projectId.'/messages:send';
@@ -59,16 +82,66 @@ final class FcmNotificationService
                     ->acceptJson()
                     ->post($url, ['message' => $message]);
 
-                if (! $response->successful()) {
-                    Log::warning('FCM send failed', [
-                        'status' => $response->status(),
-                        'body' => $response->body(),
-                    ]);
+                if ($response->successful()) {
+                    if ($isCriticalAlert) {
+                        Log::info('FCM critical_alert: sent', array_merge($logContext, [
+                            'token_suffix' => $this->maskToken($token),
+                            'fcm_message_name' => $response->json('name'),
+                        ]));
+                    }
+                } else {
+                    Log::warning($isCriticalAlert ? 'FCM critical_alert: send failed' : 'FCM send failed', array_merge(
+                        $isCriticalAlert ? $logContext : [],
+                        [
+                            'token_suffix' => $this->maskToken($token),
+                            'status' => $response->status(),
+                            'body' => $response->body(),
+                        ],
+                    ));
                 }
             } catch (Throwable $e) {
-                Log::warning('FCM send exception: '.$e->getMessage());
+                Log::warning(
+                    $isCriticalAlert ? 'FCM critical_alert: send exception' : 'FCM send exception',
+                    array_merge(
+                        $isCriticalAlert ? $logContext : [],
+                        [
+                            'token_suffix' => $this->maskToken($token),
+                            'error' => $e->getMessage(),
+                        ],
+                    ),
+                );
             }
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function isCriticalAlert(array $data): bool
+    {
+        return ($data['type'] ?? '') === 'critical_alert';
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function criticalAlertLogContext(array $data, string $title, string $body): array
+    {
+        return [
+            'type' => $data['type'] ?? null,
+            'device_id' => $data['device_id'] ?? null,
+            'sensor_type' => $data['sensor_type'] ?? null,
+            'title' => $title,
+            'body' => $body,
+        ];
+    }
+
+    private function maskToken(string $token): string
+    {
+        $length = strlen($token);
+
+        return $length <= 8 ? '***' : '...'.substr($token, -8);
     }
 
     private function accessToken(): ?string
