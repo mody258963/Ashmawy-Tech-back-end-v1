@@ -34,6 +34,6 @@ class SendIotAlertPushJob implements ShouldQueue
             ->pluck('token')
             ->all();
 
-        $fcm->sendToTokens($tokens, $this->title, $this->body, $this->data);
+        $fcm->sendToTokens($tokens, $this->title, $this->body, $this->data, highPriority: true);
     }
 }

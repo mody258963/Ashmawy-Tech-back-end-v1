@@ -16,7 +16,7 @@ final class FcmNotificationService
     /**
      * @param  list<string>  $deviceTokens
      */
-    public function sendToTokens(array $deviceTokens, string $title, string $body, array $data = []): void
+    public function sendToTokens(array $deviceTokens, string $title, string $body, array $data = [], bool $highPriority = false): void
     {
         $deviceTokens = array_values(array_filter(array_unique($deviceTokens)));
         if ($deviceTokens === []) {
@@ -39,18 +39,25 @@ final class FcmNotificationService
 
         foreach ($deviceTokens as $token) {
             try {
+                $message = [
+                    'token' => $token,
+                    'notification' => [
+                        'title' => $title,
+                        'body' => $body,
+                    ],
+                    'data' => array_map(static fn ($v) => (string) $v, $data),
+                ];
+
+                if ($highPriority) {
+                    $message['android'] = ['priority' => 'HIGH'];
+                    $message['apns'] = [
+                        'headers' => ['apns-priority' => '10'],
+                    ];
+                }
+
                 $response = Http::withToken($accessToken)
                     ->acceptJson()
-                    ->post($url, [
-                        'message' => [
-                            'token' => $token,
-                            'notification' => [
-                                'title' => $title,
-                                'body' => $body,
-                            ],
-                            'data' => array_map(static fn ($v) => (string) $v, $data),
-                        ],
-                    ]);
+                    ->post($url, ['message' => $message]);
 
                 if (! $response->successful()) {
                     Log::warning('FCM send failed', [

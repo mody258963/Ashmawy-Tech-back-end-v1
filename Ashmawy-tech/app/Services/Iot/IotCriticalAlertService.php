@@ -4,11 +4,13 @@ namespace App\Services\Iot;
 
 use App\Jobs\Iot\SendIotAlertPushJob;
 use App\Models\Iot\IotDevice;
+use App\Repository\Iot\IotSensorSlotRepository;
 
 final class IotCriticalAlertService
 {
     public function __construct(
         private readonly IotAppSession $appSession,
+        private readonly IotSensorSlotRepository $sensorSlots,
     ) {}
 
     /**
@@ -19,8 +21,7 @@ final class IotCriticalAlertService
      */
     public function maybeNotify(IotDevice $device, string $sensorType, array $value, ?array $previousValue = null): void
     {
-        $criticalTypes = config('iot.critical_sensor_types', []);
-        if (! in_array($sensorType, $criticalTypes, true)) {
+        if (! $this->sensorSlots->isCriticalForDevice((int) $device->id, $sensorType)) {
             return;
         }
 
@@ -45,6 +46,7 @@ final class IotCriticalAlertService
             $title,
             $body,
             [
+                'type' => 'critical_alert',
                 'device_id' => (string) $device->id,
                 'sensor_type' => $sensorType,
             ],

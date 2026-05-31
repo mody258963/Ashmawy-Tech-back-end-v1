@@ -49,9 +49,11 @@ Handle `200` / `504` / `422` per ACK contract in [iot-platform.md](./iot-platfor
 
 1. Flutter: `firebase_messaging` → get FCM token.
 2. `POST /api/v1/iot/push-tokens` `{ "token": "...", "platform": "android" | "ios" }`
-3. When app is closed and door opens, server sends push (if `FCM_*` configured).
+3. When app is closed/backgrounded and a **critical** sensor fires, server sends push (if `FCM_*` configured).
 
-Critical sensor types: `door_status`, `motion` (configurable via `IOT_CRITICAL_SENSOR_TYPES`).
+Payload `data.type` is `critical_alert`; also `device_id`, `sensor_type`.
+
+Critical sensors: per-device **Critical alert** checkbox in admin, or global `IOT_CRITICAL_SENSOR_TYPES` (`door_status`, `motion` by default). Broker path: `iot/<userId>/<uuid>/sensor/<type>`.
 
 ---
 

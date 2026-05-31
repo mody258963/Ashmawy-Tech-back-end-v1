@@ -168,6 +168,14 @@ void publishSensor(const char* type, const char* jsonPayload) {
 
 Use your stack’s TLS client for production (`8883` / MQTTS).
 
-## Critical alerts
+## Critical alerts (MQTT broker → FCM push)
 
-`ProcessSensorDataJob` calls `IotCriticalAlertService` for types in `IOT_CRITICAL_SENSOR_TYPES` when the app session is inactive → `SendIotAlertPushJob` → `FcmNotificationService` (HTTP v1).
+1. ESP publishes to `iot/<userId>/<deviceUuid>/sensor/<type>` (same topic as telemetry; door/motion can publish even when app streaming is off).
+2. `iot:mqtt-subscribe` receives the message and runs `ProcessSensorDataJob`.
+3. `IotCriticalAlertService` sends push when:
+   - the sensor type is marked **Critical alert** on the device in the admin UI (`iot_sensor_slots.is_critical`), **or** the type is listed in `IOT_CRITICAL_SENSOR_TYPES` (default: `door_status`, `motion`);
+   - the value is in an alert state (e.g. door open, motion true);
+   - the app is **not** in foreground for that device (`POST .../app/heartbeat` with `streaming: true`).
+4. `SendIotAlertPushJob` (queue `iot`) → `FcmNotificationService` (FCM HTTP v1, high priority).
+
+Requires: `php artisan queue:work redis --queue=iot`, registered mobile tokens (`POST /api/v1/iot/push-tokens`), and `FCM_PROJECT_ID` + service account JSON at `FCM_CREDENTIALS_PATH`.

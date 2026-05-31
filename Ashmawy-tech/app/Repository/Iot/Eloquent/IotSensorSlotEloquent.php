@@ -43,4 +43,20 @@ class IotSensorSlotEloquent implements IotSensorSlotRepository
     {
         $slot->delete();
     }
+
+    public function isCriticalForDevice(int $deviceId, string $sensorType): bool
+    {
+        $slot = $this->model->newQuery()
+            ->where('iot_device_id', $deviceId)
+            ->where('type', $sensorType)
+            ->first();
+
+        if ($slot !== null) {
+            return $slot->is_critical;
+        }
+
+        $globalTypes = config('iot.critical_sensor_types', []);
+
+        return in_array($sensorType, $globalTypes, true);
+    }
 }
