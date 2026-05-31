@@ -1,5 +1,7 @@
 <?php
 
+use App\Console\Commands\IotDebugPushAlerts;
+use App\Console\Commands\IotTestPush;
 use App\Console\Commands\MakeRepositoryModule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -18,6 +20,8 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->group(base_path('routes/iot.php'));
         },
     )->withCommands([
+        IotDebugPushAlerts::class,
+        IotTestPush::class,
         MakeRepositoryModule::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {

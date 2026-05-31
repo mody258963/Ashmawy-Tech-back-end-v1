@@ -261,8 +261,9 @@ php artisan iot:test-push --user=1 --sync
 php artisan iot:test-push --device=2 --simulate-door --clear-session
 php artisan queue:work --queue=iot --once
 
-# Watch logs
+# Watch logs (Linux / Docker)
 grep critical_alert storage/logs/laravel.log
+# or: tail -f storage/logs/laravel.log | grep critical_alert
 ```
 
 **Common blockers**
