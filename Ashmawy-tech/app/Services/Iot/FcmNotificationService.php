@@ -163,27 +163,27 @@ final class FcmNotificationService
      */
     public function diagnose(): array
     {
-        $path = $this->resolveCredentialsPath();
+        $source = $this->credentialsSourceLabel();
         $projectId = $this->resolveProjectId();
         $result = [
             'ok' => false,
             'error' => null,
             'project_id' => $projectId,
-            'credentials_path' => $path,
-            'credentials_readable' => $path !== '' && is_readable($path),
+            'credentials_path' => $source,
+            'credentials_readable' => $this->credentialsAvailable(),
             'client_email' => null,
             'oauth_http_status' => null,
             'oauth_response' => null,
         ];
 
-        if ($path === '' || ! is_readable($path)) {
-            $result['error'] = 'Credentials file missing or not readable at '.$path;
+        if (! $this->credentialsAvailable()) {
+            $result['error'] = 'No FCM credentials: set FCM_CREDENTIALS_JSON in .env or place JSON at '.$this->resolveCredentialsPath();
 
             return $result;
         }
 
         try {
-            $json = $this->loadServiceAccountJson($path);
+            $json = $this->loadServiceAccount();
         } catch (Throwable $e) {
             $result['error'] = 'Invalid credentials JSON: '.$e->getMessage();
 
@@ -232,18 +232,42 @@ final class FcmNotificationService
             return $fromEnv;
         }
 
-        $path = $this->resolveCredentialsPath();
-        if ($path === '' || ! is_readable($path)) {
+        if (! $this->credentialsAvailable()) {
             return '';
         }
 
         try {
-            $json = $this->loadServiceAccountJson($path);
+            $json = $this->loadServiceAccount();
 
             return (string) ($json['project_id'] ?? '');
         } catch (Throwable) {
             return '';
         }
+    }
+
+    private function credentialsAvailable(): bool
+    {
+        if ($this->inlineCredentialsRaw() !== '') {
+            return true;
+        }
+
+        $path = $this->resolveCredentialsPath();
+
+        return $path !== '' && is_readable($path);
+    }
+
+    private function credentialsSourceLabel(): string
+    {
+        if ($this->inlineCredentialsRaw() !== '') {
+            return 'env:FCM_CREDENTIALS_JSON';
+        }
+
+        return $this->resolveCredentialsPath();
+    }
+
+    private function inlineCredentialsRaw(): string
+    {
+        return trim((string) config('iot.fcm.credentials_json', ''));
     }
 
     private function resolveCredentialsPath(): string
@@ -262,9 +286,39 @@ final class FcmNotificationService
     /**
      * @return array<string, mixed>
      */
-    private function loadServiceAccountJson(string $path): array
+    private function loadServiceAccount(): array
     {
-        $json = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        $inline = $this->inlineCredentialsRaw();
+        if ($inline !== '') {
+            return $this->parseServiceAccountString($inline);
+        }
+
+        $path = $this->resolveCredentialsPath();
+        if ($path === '' || ! is_readable($path)) {
+            throw new \RuntimeException('Credentials file not readable at '.$path);
+        }
+
+        return $this->parseServiceAccountString((string) file_get_contents($path));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function parseServiceAccountString(string $raw): array
+    {
+        $raw = trim($raw);
+        if ($raw === '') {
+            throw new \RuntimeException('Empty credentials');
+        }
+
+        if (! str_starts_with($raw, '{')) {
+            $decoded = base64_decode($raw, true);
+            if ($decoded !== false && $decoded !== '') {
+                $raw = $decoded;
+            }
+        }
+
+        $json = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
         if (! is_array($json)) {
             throw new \RuntimeException('Expected JSON object');
         }
@@ -311,18 +365,18 @@ final class FcmNotificationService
             return $this->accessToken;
         }
 
-        $path = $this->resolveCredentialsPath();
-        if ($path === '' || ! is_readable($path)) {
-            Log::warning('FCM skipped: credentials file not readable', [
+        if (! $this->credentialsAvailable()) {
+            Log::warning('FCM skipped: no credentials (file or FCM_CREDENTIALS_JSON)', [
                 'configured_path' => config('iot.fcm.credentials_path'),
-                'resolved_path' => $path,
+                'resolved_path' => $this->resolveCredentialsPath(),
+                'has_inline_json' => $this->inlineCredentialsRaw() !== '',
             ]);
 
             return null;
         }
 
         try {
-            $json = $this->loadServiceAccountJson($path);
+            $json = $this->loadServiceAccount();
             $clientEmail = (string) ($json['client_email'] ?? '');
             $privateKey = (string) ($json['private_key'] ?? '');
             if ($clientEmail === '' || $privateKey === '') {
@@ -352,7 +406,7 @@ final class FcmNotificationService
         } catch (Throwable $e) {
             Log::warning('FCM OAuth exception', [
                 'error' => $e->getMessage(),
-                'resolved_path' => $path,
+                'credentials_source' => $this->credentialsSourceLabel(),
             ]);
 
             return null;

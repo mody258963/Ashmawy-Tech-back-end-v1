@@ -55,6 +55,11 @@ return [
     'fcm' => [
         'project_id' => env('FCM_PROJECT_ID'),
         'credentials_path' => env('FCM_CREDENTIALS_PATH', storage_path('app/firebase-credentials.json')),
+        /*
+        | Optional: entire service-account JSON (for Docker/Dokploy when storage/app is not mounted).
+        | Paste the JSON string, or base64-encode the file and paste that instead.
+        */
+        'credentials_json' => env('FCM_CREDENTIALS_JSON'),
     ],
 
     /*

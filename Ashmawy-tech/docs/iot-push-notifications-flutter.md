@@ -285,6 +285,24 @@ FCM_PROJECT_ID=shemo-1f7c4
 FCM_CREDENTIALS_PATH=storage/app/shemo-1f7c4-firebase-adminsdk-fbsvc-cf3ce04883.json
 ```
 
+**Docker / Dokploy:** `storage/app/*` is **not in Git**. The JSON must exist on the **server** under the mounted `storage/` folder, **or** use inline env (no file):
+
+```env
+# Option B: base64 of the entire service-account JSON file (one line)
+FCM_CREDENTIALS_JSON=eyJ0eXBlIjoic2VydmljZV9hY2NvdW50Ii...
+```
+
+Generate base64 on your PC: `base64 -w0 shemo-1f7c4-firebase-adminsdk-....json` (Linux) or paste raw JSON as the value if your host allows multiline env.
+
+Copy file on server (Option A):
+
+```bash
+# On the host next to docker-compose.yml (not only on your laptop)
+ls -la storage/app/shemo-1f7c4-firebase-adminsdk-fbsvc-cf3ce04883.json
+docker compose exec app chmod 640 storage/app/shemo-1f7c4-firebase-adminsdk-fbsvc-cf3ce04883.json
+docker compose exec app chown www-data:www-data storage/app/shemo-1f7c4-firebase-adminsdk-fbsvc-cf3ce04883.json
+```
+
 Then: `php artisan config:clear`
 
 ---

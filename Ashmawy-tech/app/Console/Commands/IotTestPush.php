@@ -158,7 +158,7 @@ class IotTestPush extends Command
         $this->comment('Fix checklist:');
         $this->line('  1. .env: FCM_PROJECT_ID=shemo-1f7c4');
         $this->line('  2. .env: FCM_CREDENTIALS_PATH=storage/app/<your-firebase-adminsdk>.json');
-        $this->line('  3. File must exist inside container (volume: ./storage:/var/www/html/storage)');
+        $this->line('  3. File on SERVER host storage/app/ (not in Git), OR set FCM_CREDENTIALS_JSON in .env');
         $this->line('  4. Google Cloud: enable "Firebase Cloud Messaging API"');
         $this->line('  5. Rebuild image with ca-certificates if OAuth SSL fails');
         $this->line('  6. php artisan config:clear');
