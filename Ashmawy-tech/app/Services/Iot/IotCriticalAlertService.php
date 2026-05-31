@@ -22,19 +22,36 @@ final class IotCriticalAlertService
      */
     public function maybeNotify(IotDevice $device, string $sensorType, array $value, ?array $previousValue = null): void
     {
+        $baseContext = [
+            'device_id' => (int) $device->id,
+            'iot_user_id' => (int) $device->iot_user_id,
+            'sensor_type' => $sensorType,
+            'value' => $value,
+        ];
+
         if (! $this->sensorSlots->isCriticalForDevice((int) $device->id, $sensorType)) {
+            Log::info('critical_alert: skipped — sensor not critical for device', $baseContext);
+
             return;
         }
 
         if ($this->appSession->active((int) $device->id)) {
+            Log::info('critical_alert: skipped — app session active (foreground)', $baseContext);
+
             return;
         }
 
         if (! $this->isAlertState($sensorType, $value)) {
+            Log::info('critical_alert: skipped — not an alert state', $baseContext);
+
             return;
         }
 
         if ($previousValue !== null && $this->sameAlertState($sensorType, $value, $previousValue)) {
+            Log::info('critical_alert: skipped — same alert state as previous', array_merge($baseContext, [
+                'previous_value' => $previousValue,
+            ]));
+
             return;
         }
 

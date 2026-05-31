@@ -243,7 +243,52 @@ If you forget `streaming: false` on background, critical pushes may be **blocked
 
 ---
 
-## 9. Testing checklist
+## 9. Backend debugging (no push / empty logs)
+
+Run on the server from the Laravel project root:
+
+```bash
+# Full checklist (FCM .env, tokens, Redis door state, queue)
+php artisan iot:debug-push
+
+# One device
+php artisan iot:debug-push --device=2
+
+# Test FCM only (bypasses MQTT) — needs queue worker unless --sync
+php artisan iot:test-push --user=1 --sync
+
+# Simulate door open alert path
+php artisan iot:test-push --device=2 --simulate-door --clear-session
+php artisan queue:work --queue=iot --once
+
+# Watch logs
+grep critical_alert storage/logs/laravel.log
+```
+
+**Common blockers**
+
+| Symptom | Fix |
+|---------|-----|
+| No logs at all | `iot:mqtt-subscribe` not running, or MQTT topic/user/uuid mismatch |
+| `skipped — app session active` | App sent `streaming: true`; use `streaming: false` or `iot:test-push --clear-session` |
+| `skipped — sensor not critical` | Admin slot has Critical **unchecked** (overrides global list) |
+| `skipped — same alert state` | Door already open in Redis; close door first or clear Redis sensors in admin |
+| `FCM_PROJECT_ID not set` | Add to `.env` (see below) |
+| `iot_push_tokens` missing | `php artisan migrate` |
+| Job queued, no push | `php artisan queue:work --queue=iot` (`.env` uses `QUEUE_CONNECTION=database`) |
+
+**.env example** (use your downloaded JSON filename):
+
+```env
+FCM_PROJECT_ID=shemo-1f7c4
+FCM_CREDENTIALS_PATH=storage/app/shemo-1f7c4-firebase-adminsdk-fbsvc-cf3ce04883.json
+```
+
+Then: `php artisan config:clear`
+
+---
+
+## 10. Testing checklist
 
 1. Log in on a physical device (simulator FCM is limited).
 2. Confirm `POST /push-tokens` returns `{ "message": "ok" }`.
@@ -254,13 +299,13 @@ If you forget `streaming: false` on background, critical pushes may be **blocked
 
 ---
 
-## 10. Postman
+## 11. Postman
 
 Collection: [`postman/Ashmawy-Iot-Flutter-API.postman_collection.json`](../postman/Ashmawy-Iot-Flutter-API.postman_collection.json) → folder **IoT — Push tokens**.
 
 ---
 
-## API summary
+## 12. API summary
 
 | Method | Path | Purpose |
 |--------|------|---------|

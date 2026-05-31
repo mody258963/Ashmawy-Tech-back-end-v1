@@ -62,6 +62,13 @@ class ProcessSensorDataJob implements ShouldQueue
             ? $previousSnapshot[$this->sensorType]['value']
             : null;
 
+        Log::debug('IoT sensor received', [
+            'device_id' => $device->id,
+            'sensor_type' => $this->sensorType,
+            'value' => $value,
+            'had_previous' => $previousValue !== null,
+        ]);
+
         try {
             $realtime->putSensorLatest((int) $device->id, $this->sensorType, $value, $this->messageId);
             $criticalAlerts->maybeNotify($device, $this->sensorType, $value, $previousValue);

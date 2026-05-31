@@ -144,15 +144,31 @@ final class FcmNotificationService
         return $length <= 8 ? '***' : '...'.substr($token, -8);
     }
 
+    private function resolveCredentialsPath(): string
+    {
+        $path = (string) config('iot.fcm.credentials_path', '');
+        if ($path === '') {
+            return '';
+        }
+        if (! str_starts_with($path, '/') && ! preg_match('#^[A-Za-z]:\\\\#', $path)) {
+            return base_path($path);
+        }
+
+        return $path;
+    }
+
     private function accessToken(): ?string
     {
         if ($this->accessToken !== null && time() < $this->accessTokenExpiresAt - 60) {
             return $this->accessToken;
         }
 
-        $path = (string) config('iot.fcm.credentials_path', '');
+        $path = $this->resolveCredentialsPath();
         if ($path === '' || ! is_readable($path)) {
-            Log::debug('FCM skipped: credentials file not readable at '.$path);
+            Log::warning('FCM skipped: credentials file not readable', [
+                'configured_path' => config('iot.fcm.credentials_path'),
+                'resolved_path' => $path,
+            ]);
 
             return null;
         }
