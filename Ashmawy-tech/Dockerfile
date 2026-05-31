@@ -17,6 +17,7 @@ ARG TZ=UTC
 ENV TZ=${TZ}
 
 RUN apk add --no-cache \
+    ca-certificates \
     git \
     curl \
     tzdata \
