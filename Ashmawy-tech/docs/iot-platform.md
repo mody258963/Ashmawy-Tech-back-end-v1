@@ -179,3 +179,5 @@ Use your stack’s TLS client for production (`8883` / MQTTS).
 4. `SendIotAlertPushJob` (queue `iot`) → `FcmNotificationService` (FCM HTTP v1, high priority).
 
 Requires: `php artisan queue:work redis --queue=iot`, registered mobile tokens (`POST /api/v1/iot/push-tokens`), and `FCM_PROJECT_ID` + service account JSON at `FCM_CREDENTIALS_PATH`.
+
+Flutter integration: [iot-push-notifications-flutter.md](./iot-push-notifications-flutter.md).

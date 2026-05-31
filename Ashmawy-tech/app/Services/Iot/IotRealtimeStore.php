@@ -70,6 +70,12 @@ class IotRealtimeStore
         Redis::hDel($this->sensorHashKey($iotDeviceId), $sensorType);
     }
 
+    /** Remove all latest sensor readings for a device (Redis hash). */
+    public function clearSensorLatestAll(int $iotDeviceId): void
+    {
+        Redis::del($this->sensorHashKey($iotDeviceId));
+    }
+
     public function forgetModuleStatus(int $iotDeviceId, int $channel): void
     {
         Redis::hDel($this->moduleHashKey($iotDeviceId), (string) $channel);

@@ -189,9 +189,16 @@
 
     {{-- Sensors --}}
     <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center py-2">
-            <strong>{{ __('Sensors') }}</strong>
-            <span class="badge badge-light">{{ $sensorSlots->count() }}</span>
+        <div class="card-header d-flex justify-content-between align-items-center py-2 flex-wrap">
+            <div>
+                <strong>{{ __('Sensors') }}</strong>
+                <span class="badge badge-light ml-1">{{ $sensorSlots->count() }}</span>
+            </div>
+            <form action="{{ route('iot.devices.sensors.clear-redis', $device) }}" method="post" class="mb-0"
+                  onsubmit="return confirm('{{ __('Clear all live sensor values from Redis for this site? New MQTT readings will repopulate the cache.') }}');">
+                @csrf
+                <button type="submit" class="btn btn-outline-warning btn-sm">{{ __('Clear Redis sensors') }}</button>
+            </form>
         </div>
         <div class="card-body p-0">
             <table class="table table-sm mb-0">

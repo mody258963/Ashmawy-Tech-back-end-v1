@@ -130,4 +130,13 @@ class DeviceController extends Controller
 
         return back()->with('status', __('Device MQTT JWT regenerated.'));
     }
+
+    public function clearLiveSensors(Request $request, int $device): RedirectResponse
+    {
+        $user = $request->user('iot-web');
+        $model = $this->devices->findOwnedOrFail($device, $user);
+        $this->realtime->clearSensorLatestAll((int) $model->id);
+
+        return back()->with('status', __('Live sensor cache cleared from Redis.'));
+    }
 }

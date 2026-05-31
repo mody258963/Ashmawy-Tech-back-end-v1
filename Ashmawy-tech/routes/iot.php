@@ -29,6 +29,8 @@ Route::prefix('iot')->name('iot.')->group(function (): void {
         Route::delete('devices/{device}', [DeviceController::class, 'destroy'])->name('devices.destroy');
         Route::post('devices/{device}/jwt/regenerate', [DeviceController::class, 'regenerateJwt'])
             ->name('devices.jwt.regenerate');
+        Route::post('devices/{device}/sensors/clear-redis', [DeviceController::class, 'clearLiveSensors'])
+            ->name('devices.sensors.clear-redis');
         Route::post('devices/{device}/components/{component}/action', [DeviceController::class, 'action'])
             ->name('devices.components.action');
 
